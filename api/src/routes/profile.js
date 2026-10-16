@@ -38,6 +38,15 @@ router.put('/', async (req, res) => {
       onboarding_completed,
     } = req.body;
 
+    const gpaVal = req.body.gpa !== undefined && req.body.gpa !== '' ? parseFloat(req.body.gpa) : null;
+    let finalImported = imported_data || {};
+    if (typeof finalImported === 'string') {
+      try { finalImported = JSON.parse(finalImported); } catch {}
+    }
+    if (gpaVal !== null && !isNaN(gpaVal)) {
+      finalImported.gpa = gpaVal;
+    }
+
     const result = await db.query(
       `INSERT INTO user_profiles
          (user_id, name, year_of_study, branch, college, skills, interests,
@@ -73,7 +82,7 @@ router.put('/', async (req, res) => {
         github_username || null,
         linkedin_url || null,
         resume_filename || null,
-        imported_data ? JSON.stringify(imported_data) : null,
+        Object.keys(finalImported).length > 0 ? JSON.stringify(finalImported) : null,
         onboarding_completed !== undefined ? onboarding_completed : true,
       ]
     );
@@ -395,6 +404,16 @@ async function recomputeMatches(userId) {
                   await db.queryOne('SELECT * FROM profiles WHERE user_id = $1', [userId]);
   if (!profile) return;
 
+  if (profile.imported_data) {
+    let imp = profile.imported_data;
+    if (typeof imp === 'string') {
+      try { imp = JSON.parse(imp); } catch {}
+    }
+    if (!profile.gpa && imp && (imp.gpa || imp.cgpa)) {
+      profile.gpa = imp.gpa || imp.cgpa;
+    }
+  }
+
   const opps = await db.query(
     'SELECT * FROM opportunities WHERE is_active = TRUE ORDER BY created_at DESC LIMIT 100'
   );
@@ -402,13 +421,18 @@ async function recomputeMatches(userId) {
   for (const opp of opps.rows) {
     try {
       const result = await matchOpportunity(opp, profile);
+      const reasonPayload = JSON.stringify({
+        summary: result.reason,
+        fitLabel: result.fitLabel,
+        breakdown: result.breakdown,
+      });
       await db.query(
         `INSERT INTO match_results (user_id, opportunity_id, match_status, match_score, reason, evidence, computed_at)
          VALUES ($1, $2, $3, $4, $5, $6, NOW())
          ON CONFLICT (user_id, opportunity_id) DO UPDATE SET
            match_status = EXCLUDED.match_status, match_score = EXCLUDED.match_score,
            reason = EXCLUDED.reason, evidence = EXCLUDED.evidence, computed_at = NOW()`,
-        [userId, opp.id, result.status, result.score, result.reason, result.evidence]
+        [userId, opp.id, result.status, result.score, reasonPayload, result.evidence]
       );
     } catch (e) {
       console.error('[matcher] Error for opp', opp.id, ':', e.message);

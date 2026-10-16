@@ -108,8 +108,8 @@ router.put('/settings', async (req, res) => {
   }
 });
 
-// ── PATCH /api/alerts/:id/read – mark single alert as read ────────────────────
-router.patch('/:id/read', async (req, res) => {
+// ── PATCH / POST /api/alerts/:id/read – mark single alert as read ─────────────
+const markReadHandler = async (req, res) => {
   try {
     await db.query(
       'UPDATE alerts SET is_read = TRUE WHERE id = $1 AND user_id = $2',
@@ -119,10 +119,12 @@ router.patch('/:id/read', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
-});
+};
+router.patch('/:id/read', markReadHandler);
+router.post('/:id/read', markReadHandler);
 
-// ── PATCH /api/alerts/read-all – mark all alerts as read ──────────────────────
-router.patch('/read-all', async (req, res) => {
+// ── PATCH / POST /api/alerts/read-all – mark all alerts as read ───────────────
+const markAllReadHandler = async (req, res) => {
   try {
     await db.query(
       "UPDATE alerts SET is_read = TRUE WHERE user_id = $1 AND channel = 'in-app'",
@@ -132,6 +134,8 @@ router.patch('/read-all', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
-});
+};
+router.patch('/read-all', markAllReadHandler);
+router.post('/read-all', markAllReadHandler);
 
 module.exports = router;

@@ -67,7 +67,7 @@ const state = {
   dataLoaded: false,
 };
 
-// ── Toast Utility ──────────────────────────────────────────────────────────
+// ── Toast & Accessibility Announcer ─────────────────────────────────────────
 function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
   if (!container) return;
@@ -75,13 +75,21 @@ function showToast(message, type = 'info') {
   toast.className = `toast toast-${type}`;
   toast.innerHTML = `
     <span class="toast-icon">${type === 'success' ? '✓' : type === 'error' ? '⚠' : 'ℹ'}</span>
-    <span>${message}</span>
+    <span>${escapeHtml(message)}</span>
   `;
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = '0';
     setTimeout(() => toast.remove(), 300);
   }, 4000);
+}
+
+function announceStatus(message) {
+  const el = document.getElementById('a11y-announcer');
+  if (el) {
+    el.textContent = '';
+    setTimeout(() => { el.textContent = message; }, 50);
+  }
 }
 
 function appendConsoleLog(message, level = 'info') {
@@ -124,19 +132,17 @@ async function apiRequest(endpoint, options = {}) {
       if (!isRefreshing) {
         isRefreshing = true;
         try {
-          const rawRefresh = localStorage.getItem('or_refresh_token') || '';
           const refRes = await fetch(`${API_URL}/api/auth/refresh`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken: rawRefresh }),
+            body: JSON.stringify({}),
           });
 
           if (refRes.ok) {
             const refData = await refRes.json();
             state.token = refData.token;
-            localStorage.setItem('or_token', refData.token);
-            if (refData.refreshToken) localStorage.setItem('or_refresh_token', refData.refreshToken);
+            if (refData.token) localStorage.setItem('or_token', refData.token);
             isRefreshing = false;
             onTokenRefreshed(refData.token);
             return apiRequest(endpoint, options);
@@ -185,19 +191,18 @@ async function checkAuth() {
       return true;
     }
   } catch {
-    // If access token failed, try refresh token once
+    // If access token failed, try refresh token cookie once
     try {
       const refRes = await fetch(`${API_URL}/api/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: localStorage.getItem('or_refresh_token') || '' }),
+        body: JSON.stringify({}),
       });
       if (refRes.ok) {
         const refData = await refRes.json();
         state.token = refData.token;
-        localStorage.setItem('or_token', refData.token);
-        if (refData.refreshToken) localStorage.setItem('or_refresh_token', refData.refreshToken);
+        if (refData.token) localStorage.setItem('or_token', refData.token);
         const meData = await apiRequest('/api/auth/me');
         if (meData && meData.user) {
           state.user = meData.user;
@@ -386,10 +391,10 @@ async function loadAllData() {
   await Promise.allSettled([
     loadProfile(),
     loadOpportunities(),
+    loadChanges(),
     loadSources(),
     loadAlerts(),
   ]);
-  extractChangesFromOpportunities();
   updateMetrics();
 }
 
@@ -409,17 +414,23 @@ async function loadOpportunities() {
     const data = await apiRequest('/api/opportunities');
     const rawList = Array.isArray(data) ? data : (data?.opportunities || []);
     state.opportunities = rawList.map((opp) => {
-      const matchStatus = opp.match?.status || opp.match_status || 'MATCH';
-      const rawScore = opp.match?.score ?? opp.match_score ?? 0.85;
-      const score = typeof rawScore === 'number' && rawScore <= 1 ? Math.round(rawScore * 100) : Math.round(rawScore);
-      const reasons = opp.match?.reasons || (opp.match_reason ? [opp.match_reason] : ['Matches academic discipline and skill profile']);
+      const rawScore = opp.match?.score ?? opp.match_score ?? null;
+      const score = (rawScore !== null && rawScore !== undefined)
+        ? (typeof rawScore === 'number' && rawScore <= 1 ? Math.round(rawScore * 100) : Math.round(rawScore))
+        : null;
+      const matchStatus = opp.match?.status || opp.match_status || (score === null ? 'NOT_EVALUATED' : 'MATCH');
+      const fitLabel = opp.match?.fitLabel || (score !== null ? (score >= 80 ? 'Strong Fit' : score >= 50 ? 'Moderate Fit' : 'Low Fit') : null);
+      const reasons = opp.match?.reasons || (opp.match_reason ? [opp.match_reason] : []);
+      const breakdown = opp.match?.breakdown || null;
       return {
         ...opp,
         is_watched: Boolean(opp.is_watched || opp.is_watching),
         match: {
           status: matchStatus,
           score,
+          fitLabel,
           reasons,
+          breakdown,
         },
       };
     });
@@ -437,6 +448,21 @@ async function loadOpportunities() {
       document.getElementById('retry-opps-btn')?.addEventListener('click', () => loadOpportunities());
     }
   }
+}
+
+async function loadChanges() {
+  try {
+    const data = await apiRequest('/api/changes');
+    const serverChanges = Array.isArray(data) ? data : (data?.changes || []);
+    if (serverChanges.length > 0) {
+      state.changes = serverChanges;
+      renderChangesTimeline();
+      return;
+    }
+  } catch (err) {
+    console.warn('[changes] Could not load /api/changes, falling back to local snapshot extract:', err.message);
+  }
+  extractChangesFromOpportunities();
 }
 
 async function loadSources() {
@@ -518,6 +544,8 @@ function renderProfileForm() {
   if (get('prof-year')) get('prof-year').value = p.year_of_study || '3rd';
   if (get('prof-branch')) get('prof-branch').value = p.branch || '';
   if (get('prof-college')) get('prof-college').value = p.college || '';
+  const gpa = p.gpa || (p.imported_data && typeof p.imported_data === 'object' ? p.imported_data.gpa : null) || '';
+  if (get('prof-gpa')) get('prof-gpa').value = gpa;
   if (get('prof-skills')) get('prof-skills').value = (p.skills || []).join(', ');
   if (get('prof-interests')) get('prof-interests').value = (p.interests || []).join(', ');
   if (get('prof-locations')) get('prof-locations').value = (p.location_pref || []).join(', ');
@@ -583,21 +611,27 @@ function renderOpportunities() {
 
   container.innerHTML = state.filteredOpportunities
     .map((opp) => {
-      const match = opp.match || { status: 'PARTIAL', score: 65, reasons: ['Profile evaluation in progress'] };
-      const matchClass = match.status === 'MATCH' ? 'status-match' : match.status === 'PARTIAL' ? 'status-partial' : 'status-no_match';
+      const match = opp.match || { status: 'NOT_EVALUATED', score: null, reasons: [] };
+      const matchClass = match.score !== null
+        ? (match.score >= 80 ? 'status-match' : match.score >= 50 ? 'status-partial' : 'status-no_match')
+        : 'status-unevaluated';
       const deadlineInfo = formatDeadline(opp.deadline);
-      const isWatched = opp.is_watched;
+      const isWatched = Boolean(opp.is_watched);
       const hasRecentChange = opp.recent_changes && opp.recent_changes.length > 0;
+      const isClosedByOrganizer = opp.status === 'closed';
+      const isExpiredDeadline = !isClosedByOrganizer && opp.deadline && (new Date(opp.deadline) < new Date());
+      const isDemoLink = opp.apply_link && (opp.apply_link.includes('.example') || opp.apply_link.includes('example.org') || opp.apply_link.includes('example.com') || opp.apply_link.includes('mock-portal'));
 
       return `
-        <article class="opp-card" data-id="${opp.id}">
+        <article class="opp-card" data-id="${escapeHtml(opp.id)}">
           <div class="opp-card-header">
             <div class="opp-meta-top">
-              <span class="opp-badge badge-${opp.opp_type || 'internship'}">${opp.opp_type || 'Opportunity'}</span>
+              <span class="opp-badge badge-${escapeHtml(opp.opp_type || 'internship')}">${escapeHtml(opp.opp_type || 'Opportunity')}</span>
               ${hasRecentChange ? '<span class="opp-badge badge-changed">Changed</span>' : ''}
-              ${opp.is_dead ? '<span class="opp-badge badge-closed">Closed</span>' : ''}
+              ${isClosedByOrganizer ? '<span class="opp-badge status-badge-closed">Closed by Organizer</span>' : (isExpiredDeadline ? '<span class="opp-badge status-badge-expired">Deadline Passed</span>' : '')}
+              ${isDemoLink ? '<span class="status-badge-demo" title="Simulated demonstration listing">Demo Data</span>' : ''}
             </div>
-            <button class="watch-btn ${isWatched ? 'active' : ''}" data-id="${opp.id}" title="${isWatched ? 'Unwatch' : 'Watch for changes'}" aria-label="Watch opportunity">
+            <button class="watch-btn ${isWatched ? 'active' : ''}" data-id="${escapeHtml(opp.id)}" title="${isWatched ? 'Unwatch' : 'Watch for changes'}" aria-label="${isWatched ? 'Unwatch ' + escapeHtml(opp.title) : 'Watch ' + escapeHtml(opp.title)}">
               ${isWatched ? '★' : '☆'}
             </button>
           </div>
@@ -615,15 +649,19 @@ function renderOpportunities() {
 
           <!-- Radar Match Reason Banner -->
           <div class="match-banner ${matchClass}">
-            <span class="match-score-pill">${match.score || 70}% Fit</span>
-            <span>${escapeHtml(match.reasons?.[0] || 'Meets key academic and skill criteria')}</span>
+            ${match.score !== null
+              ? `<span class="match-score-pill">${match.score}% Fit ${match.fitLabel ? `(${escapeHtml(match.fitLabel)})` : ''}</span>
+                 <span>${escapeHtml(match.reasons?.[0] || 'Meets key academic and skill criteria')}</span>`
+              : `<span class="match-score-pill status-unevaluated">Not evaluated</span>
+                 <span>${escapeHtml(match.reasons?.[0] || 'Complete your student profile to evaluate eligibility')}</span>`
+            }
           </div>
 
           <div class="opp-details-list">
             <div class="detail-row">
               <span class="detail-label">Deadline</span>
               <span class="detail-value ${deadlineInfo.isSoon ? 'deadline-highlight' : ''}">
-                ${deadlineInfo.text}
+                ${escapeHtml(deadlineInfo.text)}
               </span>
             </div>
             <div class="detail-row">
@@ -639,15 +677,21 @@ function renderOpportunities() {
           </div>
 
           <div class="opp-card-actions">
-            <button class="btn btn-secondary btn-sm view-detail-btn" data-id="${opp.id}">
+            <button class="btn btn-secondary btn-sm view-detail-btn" data-id="${escapeHtml(opp.id)}">
               Why You Fit
             </button>
-            <a href="${API_URL}/api/opportunities/${opp.id}/calendar.ics" class="btn btn-secondary btn-sm" title="Add deadline to Calendar" download>
+            <a href="${API_URL}/api/opportunities/${encodeURIComponent(opp.id)}/ics" class="btn btn-secondary btn-sm" title="Add deadline to Calendar" download aria-label="Export calendar event for ${escapeHtml(opp.title)}">
               Export .ics
             </a>
-            <a href="${opp.apply_link || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="margin-left: auto;">
-              Apply ↗
-            </a>
+            ${isDemoLink ? `
+              <a href="${escapeHtml(opp.apply_link || '#')}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="margin-left: auto;" title="Simulated demonstration listing">
+                Demo Portal ↗
+              </a>
+            ` : `
+              <a href="${escapeHtml(opp.apply_link || '#')}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="margin-left: auto;">
+                Apply ↗
+              </a>
+            `}
           </div>
         </article>
       `;
@@ -703,7 +747,12 @@ function renderChangesTimeline() {
     .map((c) => {
       const icon = c.change_type === 'DEADLINE_CHANGED' ? 'D' : c.change_type === 'ELIGIBILITY_CHANGED' ? 'E' : c.change_type === 'REWARD_CHANGED' ? 'R' : 'N';
       const markerClass = c.change_type === 'DEADLINE_CHANGED' ? 'marker-deadline' : c.change_type === 'ELIGIBILITY_CHANGED' ? 'marker-eligibility' : c.change_type === 'REWARD_CHANGED' ? 'marker-reward' : 'marker-new';
-      const timeStr = new Date(c.detected_at).toLocaleString();
+      const detectedDate = c.detected_at ? new Date(c.detected_at) : new Date();
+      const timeStr = detectedDate.toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+      const sourceUrl = c.source_url || c.source_link || '';
 
       return `
         <article class="timeline-item">
@@ -715,21 +764,22 @@ function renderChangesTimeline() {
           <div class="timeline-content">
             <div class="timeline-header-row">
               <div>
-                <span class="opp-badge badge-${c.change_type?.toLowerCase() || 'changed'}">${c.change_type}</span>
+                <span class="opp-badge badge-${escapeHtml(c.change_type?.toLowerCase() || 'changed')}">${escapeHtml(c.change_type)}</span>
                 <h3 class="timeline-opp-title">${escapeHtml(c.opp_title || 'Opportunity Update')}</h3>
+                ${c.opp_organizer ? `<span style="font-size: 0.8rem; color: var(--ink-muted);">${escapeHtml(c.opp_organizer)}</span>` : ''}
               </div>
-              <span class="timeline-time">${timeStr}</span>
+              <time class="timeline-time" datetime="${detectedDate.toISOString()}">Detected: ${escapeHtml(timeStr)}</time>
             </div>
 
             <p class="timeline-explanation">${escapeHtml(c.explanation || 'Change verified by automated web snapshot inspection.')}</p>
 
             ${renderDiffSnippet(c)}
 
-            <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 0.5rem;">
-              <button class="btn btn-secondary btn-sm view-detail-btn" data-id="${c.opportunity_id}">
+            <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 0.5rem; flex-wrap: wrap;">
+              <button class="btn btn-secondary btn-sm view-detail-btn" data-id="${escapeHtml(c.opportunity_id)}">
                 View Full Opportunity Radar
               </button>
-              ${c.source_link ? `<a href="${c.source_link}" target="_blank" rel="noopener noreferrer" class="source-url" style="font-size: 0.75rem;">Source Portal ↗</a>` : ''}
+              ${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" class="source-url" style="font-size: 0.75rem;">Source Portal ↗</a>` : ''}
             </div>
           </div>
         </article>
@@ -782,18 +832,18 @@ function renderSources() {
           <div class="source-card-header">
             <h3 class="source-title">${escapeHtml(s.label || s.url)}</h3>
             <span class="opp-badge badge-internship">
-              Every ${s.poll_interval}m
+              Every ${escapeHtml(String(s.poll_interval))}m
             </span>
           </div>
-          <a href="${s.url}" target="_blank" rel="noopener noreferrer" class="source-url">${escapeHtml(s.url)}</a>
+          <a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="source-url">${escapeHtml(s.url)}</a>
 
           <div class="source-meta-row">
-            <span>Last check: ${lastCheck}</span>
+            <span>Last check: ${escapeHtml(lastCheck)}</span>
             <span>Robots: ${s.robots_allowed ? 'Allowed' : 'Strict'}</span>
           </div>
 
           <div style="display: flex; gap: 0.5rem; margin-top: auto; padding-top: 0.5rem;">
-            <button class="btn btn-secondary btn-sm check-source-now-btn" data-id="${s.id}" style="width: 100%;">
+            <button class="btn btn-secondary btn-sm check-source-now-btn" data-id="${escapeHtml(s.id)}" style="width: 100%;">
               Check Now
             </button>
           </div>
@@ -857,10 +907,10 @@ function renderAlerts() {
     .map((a) => {
       const timeStr = new Date(a.created_at).toLocaleTimeString();
       return `
-        <div class="alert-item ${!a.read ? 'unread' : ''}" data-id="${a.id}" data-opp="${a.opportunity_id || ''}">
+        <div class="alert-item ${!a.read ? 'unread' : ''}" data-id="${escapeHtml(a.id)}" data-opp="${escapeHtml(a.opportunity_id || '')}">
           <div class="alert-meta">
-            <span class="alert-channel">${a.channel?.toUpperCase() || 'IN-APP'}</span>
-            <span>${timeStr}</span>
+            <span class="alert-channel">${escapeHtml(a.channel?.toUpperCase() || 'IN-APP')}</span>
+            <span>${escapeHtml(timeStr)}</span>
           </div>
           <h4 class="alert-title">${escapeHtml(a.title || 'Opportunity Alert')}</h4>
           <p class="alert-text">${escapeHtml(a.message || '')}</p>
@@ -919,36 +969,93 @@ function openDetailModal(oppId) {
 
   const modal = document.getElementById('detail-modal');
   const body = document.getElementById('modal-body');
-  const match = opp.match || { status: 'PARTIAL', score: 65, reasons: [] };
+  const match = opp.match || { status: 'NOT_EVALUATED', score: null, reasons: [] };
+
+  const isClosedByOrganizer = opp.status === 'closed';
+  const isExpired = !isClosedByOrganizer && opp.deadline && (new Date(opp.deadline) < new Date());
+  const statusLabel = isClosedByOrganizer ? 'Closed by Organizer' : (isExpired ? 'Deadline Passed' : 'Active / Open');
+  const isDemo = opp.apply_link && (opp.apply_link.includes('.example') || opp.apply_link.includes('example.org') || opp.apply_link.includes('example.com') || opp.apply_link.includes('mock-portal'));
+  const sourceLabel = opp.source_url?.includes('mock-portal') || opp.source_url?.includes('localhost:4000') || !opp.source_url
+    ? 'Local Simulated Source (Mock Portal)'
+    : 'Monitored Autonomous Web Source';
+
+  const breakdown = match.breakdown || null;
+  const confirmedList = breakdown?.confirmed || [];
+  const conflictsList = breakdown?.conflicts || [];
+  const unknownList = breakdown?.unknown || [];
+
+  const lastCheckedStr = opp.last_scraped_at
+    ? new Date(opp.last_scraped_at).toLocaleString()
+    : 'Recently indexed';
 
   body.innerHTML = `
     <div class="modal-header">
       <div>
-        <span class="opp-badge badge-${opp.opp_type || 'internship'}">${opp.opp_type || 'Opportunity'}</span>
-        <h3 style="margin-top: 0.35rem;">${escapeHtml(opp.title)}</h3>
+        <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.25rem; flex-wrap: wrap;">
+          <span class="opp-badge badge-${opp.opp_type || 'internship'}">${opp.opp_type || 'Opportunity'}</span>
+          <span class="opp-badge ${isClosedByOrganizer ? 'status-badge-closed' : (isExpired ? 'status-badge-expired' : 'badge-internship')}">${statusLabel}</span>
+          ${isDemo ? '<span class="status-badge-demo" title="Simulated demo data">Demo Data</span>' : ''}
+        </div>
+        <h3 id="modal-title" style="margin-top: 0.35rem;">${escapeHtml(opp.title)}</h3>
         <p style="color: var(--ink-secondary); font-size: 0.85rem;">Organised by: ${escapeHtml(opp.organizer || 'Official Sponsor')}</p>
       </div>
-      <button id="close-modal-x-btn" class="icon-button" aria-label="Close">&times;</button>
+      <button id="close-modal-x-btn" class="icon-button" aria-label="Close dialog">&times;</button>
     </div>
 
     <!-- Match Breakdown -->
-    <div class="modal-section" style="border-left: 3px solid ${match.status === 'MATCH' ? 'var(--accent-green)' : 'var(--border-color)'}; padding-left: 1rem;">
+    <div class="modal-section" style="border-left: 3px solid ${match.score !== null ? (match.score >= 70 ? 'var(--accent-green)' : 'var(--accent-terracotta)') : 'var(--border-color)'}; padding-left: 1rem;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-        <span style="font-weight: 700; font-size: 0.9rem; font-family: var(--font-heading);">Why You Fit</span>
-        <span class="match-score-pill">${match.score || 70}% Match</span>
+        <span style="font-weight: 700; font-size: 0.9rem; font-family: var(--font-heading);">Eligibility Evaluation</span>
+        ${match.score !== null
+          ? `<span class="match-score-pill">${match.score}% Fit ${match.fitLabel ? `(${escapeHtml(match.fitLabel)})` : ''}</span>`
+          : '<span class="match-score-pill status-unevaluated">Not evaluated</span>'
+        }
       </div>
-      <ul style="padding-left: 1.25rem; font-size: 0.82rem; color: var(--ink-secondary); line-height: 1.7;">
-        ${(match.reasons || ['Evaluated based on your active academic profile']).map((r) => `<li>${escapeHtml(r)}</li>`).join('')}
-      </ul>
+
+      ${(match.reasons && match.reasons.length > 0) ? `
+        <ul style="padding-left: 1.25rem; font-size: 0.82rem; color: var(--ink-secondary); line-height: 1.6; margin-bottom: 0.5rem;">
+          ${match.reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join('')}
+        </ul>
+      ` : '<p style="font-size: 0.82rem; color: var(--ink-muted);">Complete your student profile to evaluate specific requirements.</p>'}
+
+      ${breakdown ? `
+        ${confirmedList.length > 0 ? `
+          <div class="breakdown-group">
+            <div class="breakdown-group-title confirmed">Confirmed Matches (${confirmedList.length})</div>
+            <ul class="breakdown-list confirmed">
+              ${confirmedList.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+        ${conflictsList.length > 0 ? `
+          <div class="breakdown-group">
+            <div class="breakdown-group-title conflicts">Criteria Conflicts (${conflictsList.length})</div>
+            <ul class="breakdown-list conflicts">
+              ${conflictsList.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+        ${unknownList.length > 0 ? `
+          <div class="breakdown-group">
+            <div class="breakdown-group-title unknown">Unverified / Missing Information (${unknownList.length})</div>
+            <ul class="breakdown-list unknown">
+              ${unknownList.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+      ` : ''}
     </div>
 
     <!-- Extracted Snapshot Evidence -->
     <div class="modal-section">
-      <h4 style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); margin-bottom: 0.5rem; font-family: var(--font-ui);">Extracted Evidence</h4>
+      <h4 style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); margin-bottom: 0.5rem; font-family: var(--font-ui);">Extracted Evidence &amp; Audit Trail</h4>
       <div class="evidence-block">
-        <p><strong>Eligibility:</strong> ${escapeHtml(opp.eligibility || 'None specified')}</p>
+        <p><strong>Eligibility Quote:</strong> "${escapeHtml(opp.eligibility || 'None specified in source')}"</p>
         <p style="margin-top: 0.35rem;"><strong>Reward/Stipend:</strong> ${escapeHtml(opp.reward || 'None specified')}</p>
-        <p style="margin-top: 0.35rem;"><strong>Deadline:</strong> ${formatDeadline(opp.deadline).text}</p>
+        <p style="margin-top: 0.35rem;"><strong>Deadline:</strong> ${formatDeadline(opp.deadline).text} ${opp.deadline ? `(${new Date(opp.deadline).toUTCString()})` : ''}</p>
+        <p style="margin-top: 0.35rem;"><strong>Last Checked:</strong> ${lastCheckedStr}</p>
+        <p style="margin-top: 0.35rem;"><strong>Source Verification:</strong> ${sourceLabel}</p>
+        ${opp.source_url ? `<p style="margin-top: 0.35rem;"><strong>Official Source:</strong> <a href="${opp.source_url}" target="_blank" rel="noopener noreferrer" class="source-url">${escapeHtml(opp.source_url)} ↗</a></p>` : ''}
       </div>
     </div>
 
@@ -960,23 +1067,47 @@ function openDetailModal(oppId) {
     ` : ''}
 
     <div class="modal-actions">
-      <a href="${API_URL}/api/opportunities/${opp.id}/calendar.ics" class="btn btn-secondary btn-sm" download>
+      <a href="${API_URL}/api/opportunities/${opp.id}/ics" class="btn btn-secondary btn-sm" download aria-label="Export calendar event for ${escapeHtml(opp.title)}">
         Export .ics
       </a>
       <button class="btn btn-secondary btn-sm" id="modal-watch-toggle-btn" data-id="${opp.id}">
         ${opp.is_watched ? '★ Watchlisted' : 'Add to Watchlist'}
       </button>
-      <a href="${opp.apply_link || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
-        Visit Official Portal ↗
-      </a>
+      ${isDemo ? `
+        <a href="${opp.apply_link || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" title="Simulated demo listing">
+          Open Demo Portal ↗
+        </a>
+      ` : `
+        <a href="${opp.apply_link || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
+          Visit Official Portal ↗
+        </a>
+      `}
     </div>
   `;
 
-  document.getElementById('close-modal-x-btn')?.addEventListener('click', () => modal.close());
+  const previouslyFocused = document.activeElement;
+  const closeModal = () => {
+    modal.removeEventListener('keydown', handleKeydown);
+    modal.close();
+    if (previouslyFocused && previouslyFocused.focus) previouslyFocused.focus();
+  };
+
+  const handleKeydown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeModal();
+    }
+  };
+  modal.addEventListener('keydown', handleKeydown);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  }, { once: true });
+
+  document.getElementById('close-modal-x-btn')?.addEventListener('click', closeModal);
 
   document.getElementById('modal-watch-toggle-btn')?.addEventListener('click', async () => {
     await toggleWatch(opp.id);
-    modal.close();
+    closeModal();
   });
 
   modal.showModal();
@@ -1018,12 +1149,17 @@ function applyFilters() {
 // ── Watchlist Toggle ───────────────────────────────────────────────────────
 async function toggleWatch(oppId) {
   try {
-    const res = await apiRequest(`/api/opportunities/${oppId}/watch`, { method: 'POST' });
     const opp = state.opportunities.find((o) => o.id === oppId);
-    if (opp) opp.is_watched = res.watched;
+    const isCurrentlyWatched = opp ? Boolean(opp.is_watched) : false;
+    const method = isCurrentlyWatched ? 'DELETE' : 'POST';
+    const res = await apiRequest(`/api/opportunities/${oppId}/watch`, { method });
+    const nowWatched = res && typeof res.watched === 'boolean' ? res.watched : !isCurrentlyWatched;
+    if (opp) opp.is_watched = nowWatched;
     applyFilters();
     updateMetrics();
-    showToast(res.watched ? 'Opportunity added to Watchlist ⭐' : 'Removed from Watchlist', 'success');
+    const msg = nowWatched ? 'Opportunity added to Watchlist ⭐' : 'Removed from Watchlist';
+    showToast(msg, 'success');
+    announceStatus(`${nowWatched ? 'Added to' : 'Removed from'} watchlist: ${opp?.title || 'opportunity'}`);
   } catch (err) {
     showToast(`Error: ${err.message}`, 'error');
   }
@@ -1044,34 +1180,29 @@ function switchTab(tabName) {
 async function triggerMockDeadlineExtension() {
   appendConsoleLog('Triggering Scenario A: Apex National Innovation Hackathon deadline extension (+30 days)...', 'info');
   try {
-    // 1. Update mock portal directly
     const newDeadline = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
-    const res = await fetch(`${MOCK_PORTAL_URL}/admin/update/opp-002`, {
+    await fetch(`${MOCK_PORTAL_URL}/admin/update/opp-002`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deadline: newDeadline }),
-    }).catch(async () => {
-      // If direct browser call to port 4000 fails (e.g. CORS or container host), trigger via API
-      return null;
-    });
+    }).catch(() => null);
 
-    appendConsoleLog('✓ Mock portal listing opp-002 modified (deadline shifted to ' + newDeadline.slice(0, 10) + ')', 'success');
+    appendConsoleLog(`✓ Mock portal listing opp-002 modified (deadline shifted to ${newDeadline.slice(0, 10)})`, 'success');
+    appendConsoleLog('Executing web extraction and classification on mock source...', 'info');
 
-    // 2. Trigger TinyFish scraping on the mock portal source
-    appendConsoleLog('Triggering TinyFish Web Agent extraction on http://mock-portal:4000/opportunities...', 'info');
-    const mockSource = state.sources.find((s) => s.url.includes('mock-portal')) || state.sources[0];
+    const mockSource = state.sources.find((s) => s.url.includes('mock-portal') || s.url.includes('localhost:4000')) || state.sources[0];
 
     if (mockSource) {
-      await apiRequest(`/api/sources/${mockSource.id}/check-now`, { method: 'POST' });
-      appendConsoleLog('✓ Snapshot taken. Running change diff classification...', 'info');
-
-      setTimeout(async () => {
-        await loadAllData();
-        appendConsoleLog('✓ Change Classified: DEADLINE_CHANGED detected!', 'success');
-        appendConsoleLog('✓ Alert dispatched to in-app notification center & watchlist subscribers', 'success');
-        showToast('Deadline change detected & alert generated! Check Change Timeline.', 'success');
+      const checkRes = await apiRequest(`/api/sources/${mockSource.id}/check-now`, { method: 'POST' });
+      appendConsoleLog(`✓ Scrape complete: ${checkRes.opportunitiesFound || 0} checked, ${checkRes.changesDetected || 0} change(s) detected.`, 'success');
+      await loadAllData();
+      if (checkRes.changesDetected > 0) {
+        showToast('Deadline change detected! Check Change Timeline.', 'success');
+        announceStatus('Deadline change detected and recorded.');
         switchTab('changes');
-      }, 2000);
+      } else {
+        showToast('Source checked. Baseline up to date.', 'info');
+      }
     }
   } catch (err) {
     appendConsoleLog(`Error in demo simulation: ${err.message}`, 'error');
@@ -1089,38 +1220,41 @@ async function triggerMockEligibilityChange() {
       body: JSON.stringify({ eligibility: newEligibility }),
     }).catch(() => null);
 
-    appendConsoleLog('✓ Mock portal listing opp-002 modified (eligibility restricted)', 'success');
-    appendConsoleLog('Executing TinyFish scraping...', 'info');
+    appendConsoleLog('✓ Mock portal listing opp-002 modified (eligibility restricted to final year)', 'success');
+    appendConsoleLog('Executing extraction and eligibility re-scoring...', 'info');
 
-    const mockSource = state.sources.find((s) => s.url.includes('mock-portal')) || state.sources[0];
+    const mockSource = state.sources.find((s) => s.url.includes('mock-portal') || s.url.includes('localhost:4000')) || state.sources[0];
     if (mockSource) {
-      await apiRequest(`/api/sources/${mockSource.id}/check-now`, { method: 'POST' });
-
-      setTimeout(async () => {
-        await loadAllData();
-        appendConsoleLog('✓ Change Classified: ELIGIBILITY_CHANGED detected!', 'warn');
-        appendConsoleLog('Re-scored: Pre-final-year students are now marked INELIGIBLE for Apex Hackathon.', 'error');
+      const checkRes = await apiRequest(`/api/sources/${mockSource.id}/check-now`, { method: 'POST' });
+      appendConsoleLog(`✓ Scrape complete: ${checkRes.opportunitiesFound || 0} checked, ${checkRes.changesDetected || 0} change(s) detected.`, 'success');
+      await loadAllData();
+      if (checkRes.changesDetected > 0) {
         showToast('Eligibility change detected! Fit scores recalculated.', 'warning');
+        announceStatus('Eligibility change detected and fit scores recalculated.');
         switchTab('changes');
-      }, 2000);
+      } else {
+        showToast('Source checked. Baseline up to date.', 'info');
+      }
     }
   } catch (err) {
     appendConsoleLog(`Error: ${err.message}`, 'error');
+    showToast(`Error: ${err.message}`, 'error');
   }
 }
 
 async function triggerScrapeNow() {
-  appendConsoleLog('Executing full TinyFish Agent crawl on all monitored portals...', 'info');
+  appendConsoleLog('Executing full crawl on all monitored portals...', 'info');
   try {
+    let totalChanges = 0;
     for (const source of state.sources) {
-      appendConsoleLog(`Dispatching web agent to ${source.label} (${source.url})...`, 'info');
-      await apiRequest(`/api/sources/${source.id}/check-now`, { method: 'POST' });
+      appendConsoleLog(`Crawling ${source.label} (${source.url})...`, 'info');
+      const res = await apiRequest(`/api/sources/${source.id}/check-now`, { method: 'POST' }).catch(() => null);
+      if (res && res.changesDetected) totalChanges += res.changesDetected;
     }
-    showToast('Crawl initiated across all sources.', 'info');
-    setTimeout(async () => {
-      await loadAllData();
-      appendConsoleLog('✓ All sources snapshot diffing complete.', 'success');
-    }, 2500);
+    await loadAllData();
+    appendConsoleLog(`✓ All sources snapshot diffing complete (${totalChanges} changes detected).`, 'success');
+    showToast(`Crawl complete across all sources. ${totalChanges} change(s) found.`, 'info');
+    announceStatus('Crawl complete across all sources.');
   } catch (err) {
     appendConsoleLog(`Scrape error: ${err.message}`, 'error');
   }
@@ -1131,15 +1265,14 @@ async function resetDemoState() {
   try {
     await fetch(`${MOCK_PORTAL_URL}/admin/reset`, { method: 'POST' }).catch(() => null);
     appendConsoleLog('✓ Mock portal reset. Re-syncing database snapshot...', 'success');
-    const mockSource = state.sources.find((s) => s.url.includes('mock-portal')) || state.sources[0];
+    const mockSource = state.sources.find((s) => s.url.includes('mock-portal') || s.url.includes('localhost:4000')) || state.sources[0];
     if (mockSource) {
       await apiRequest(`/api/sources/${mockSource.id}/check-now`, { method: 'POST' });
     }
-    setTimeout(async () => {
-      await loadAllData();
-      appendConsoleLog('✓ Reset complete. Baseline restored.', 'success');
-      showToast('Demo portal reset to original state.', 'success');
-    }, 1500);
+    await loadAllData();
+    appendConsoleLog('✓ Reset complete. Baseline restored.', 'success');
+    showToast('Demo portal reset to original state.', 'success');
+    announceStatus('Demo portal reset to baseline state.');
   } catch (err) {
     appendConsoleLog(`Reset error: ${err.message}`, 'error');
   }
@@ -1229,7 +1362,6 @@ function initEventListeners() {
       state.token = data.token;
       state.user = data.user;
       if (data.token) localStorage.setItem('or_token', data.token);
-      if (data.refreshToken) localStorage.setItem('or_refresh_token', data.refreshToken);
       showToast(`Welcome, ${data.user.name || 'Priya Sharma'}! (IIT Bombay)`, 'success');
       navigate('/');
     } catch (err) {
@@ -1305,7 +1437,6 @@ function initEventListeners() {
       state.token = data.token;
       state.user = data.user;
       if (data.token) localStorage.setItem('or_token', data.token);
-      if (data.refreshToken) localStorage.setItem('or_refresh_token', data.refreshToken);
 
       if (isSignup) {
         showToast('Account created! Let\'s tailor your profile.', 'success');
@@ -1483,6 +1614,7 @@ function initEventListeners() {
     const college = document.getElementById('onboard-college')?.value?.trim();
     const year_of_study = document.getElementById('onboard-year')?.value;
     const branch = document.getElementById('onboard-branch')?.value?.trim();
+    const gpa = document.getElementById('onboard-gpa')?.value ? parseFloat(document.getElementById('onboard-gpa').value) : null;
     const skills = (document.getElementById('onboard-skills')?.value || '').split(',').map((s) => s.trim()).filter(Boolean);
     const interests = (document.getElementById('onboard-interests')?.value || '').split(',').map((i) => i.trim()).filter(Boolean);
     const linkedin_url = document.getElementById('onboard-linkedin')?.value?.trim() || null;
@@ -1495,6 +1627,7 @@ function initEventListeners() {
           college,
           year_of_study,
           branch,
+          gpa,
           skills,
           interests,
           linkedin_url,
@@ -1575,6 +1708,7 @@ function initEventListeners() {
       year_of_study: document.getElementById('prof-year').value,
       branch: document.getElementById('prof-branch').value,
       college: document.getElementById('prof-college').value,
+      gpa: document.getElementById('prof-gpa')?.value ? parseFloat(document.getElementById('prof-gpa').value) : null,
       skills: document.getElementById('prof-skills').value.split(',').map((s) => s.trim()).filter(Boolean),
       interests: document.getElementById('prof-interests').value.split(',').map((i) => i.trim()).filter(Boolean),
       location_pref: document.getElementById('prof-locations').value.split(',').map((l) => l.trim()).filter(Boolean),

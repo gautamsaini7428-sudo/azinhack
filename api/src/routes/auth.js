@@ -8,25 +8,31 @@ const { sendMail } = require('../mailer');
 
 const router = express.Router();
 
+if (process.env.NODE_ENV === 'production') {
+  const secret = process.env.JWT_SECRET || '';
+  if (!secret || secret.length < 32 || /change_me|dev_key|never_in_production|example/i.test(secret)) {
+    throw new Error('FATAL: A strong, non-default JWT_SECRET of at least 32 characters is required in production.');
+  }
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'or_jwt_secret_dev_key_never_in_production_123';
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY_DAYS = 7;
 const APP_URL = process.env.APP_URL || process.env.VITE_API_URL?.replace(':3001', ':5173') || 'http://localhost:5173';
 
-// ── In-Memory Rate Limiting for Login ──────────────────────────────────────────
-const loginAttempts = new Map(); // key: ip or email, value: { count, firstAttempt }
-const MAX_ATTEMPTS = 5;
+// ── In-Memory Rate Limiting ───────────────────────────────────────────────────
+const rateLimitStore = new Map(); // key: ip or action_key, value: { count, firstAttempt }
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
-function checkRateLimit(key) {
+function checkRateLimit(key, maxAttempts = 5) {
   const now = Date.now();
-  const entry = loginAttempts.get(key);
+  const entry = rateLimitStore.get(key);
   if (!entry) return { allowed: true };
   if (now - entry.firstAttempt > LOCKOUT_WINDOW_MS) {
-    loginAttempts.delete(key);
+    rateLimitStore.delete(key);
     return { allowed: true };
   }
-  if (entry.count >= MAX_ATTEMPTS) {
+  if (entry.count >= maxAttempts) {
     const retryAfterSec = Math.ceil((entry.firstAttempt + LOCKOUT_WINDOW_MS - now) / 1000);
     return { allowed: false, retryAfterSec };
   }
@@ -35,16 +41,16 @@ function checkRateLimit(key) {
 
 function recordFailedAttempt(key) {
   const now = Date.now();
-  const entry = loginAttempts.get(key);
+  const entry = rateLimitStore.get(key);
   if (!entry || now - entry.firstAttempt > LOCKOUT_WINDOW_MS) {
-    loginAttempts.set(key, { count: 1, firstAttempt: now });
+    rateLimitStore.set(key, { count: 1, firstAttempt: now });
   } else {
     entry.count += 1;
   }
 }
 
 function clearRateLimit(key) {
-  loginAttempts.delete(key);
+  rateLimitStore.delete(key);
 }
 
 // ── Cookie Helpers ────────────────────────────────────────────────────────────
@@ -136,6 +142,12 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 8 characters long' });
     }
 
+    const clientKey = `reg_${req.ip}_${cleanEmail}`;
+    const rateCheck = checkRateLimit(clientKey, 10);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({ error: `Too many registration attempts. Please try again in ${rateCheck.retryAfterSec} seconds.` });
+    }
+
     // Check if user already exists
     const existing = await db.queryOne('SELECT id FROM users WHERE email = $1', [cleanEmail]);
     if (existing) {
@@ -147,7 +159,7 @@ router.post('/register', async (req, res) => {
       `INSERT INTO users (email, password_hash, email_verified, created_at, updated_at)
        VALUES ($1, $2, FALSE, NOW(), NOW())
        RETURNING id, email, email_verified, created_at`,
-      [cleanEmail, hash, false]
+      [cleanEmail, hash]
     );
     const user = userRes.rows[0];
 
@@ -163,14 +175,14 @@ router.post('/register', async (req, res) => {
     await db.query(
       `INSERT INTO user_profiles (user_id, name, onboarding_completed, updated_at)
        VALUES ($1, $2, FALSE, NOW())`,
-      [user.id, displayName, '3rd', '', '', [], [], [], [], null, null, null, null, false]
+      [user.id, displayName]
     );
 
     // Create default alert settings
     await db.query(
       `INSERT INTO user_alert_settings (user_id, email_enabled, telegram_enabled, frequency)
        VALUES ($1, TRUE, FALSE, 'realtime')`,
-      [user.id, true, false, '', 'realtime', 14]
+      [user.id]
     );
 
     // Create verification token
@@ -214,7 +226,6 @@ router.post('/register', async (req, res) => {
         name: displayName,
       },
       token: accessToken,
-      refreshToken,
     });
   } catch (err) {
     if (err.code === '23505') {
@@ -277,7 +288,6 @@ router.post('/login', async (req, res) => {
         onboarding_completed: Boolean(profile?.onboarding_completed),
       },
       token: accessToken,
-      refreshToken,
     });
   } catch (err) {
     console.error('[auth] Login error:', err);
@@ -289,6 +299,10 @@ router.post('/login', async (req, res) => {
 // Seeded demo account for instant judges login
 router.post('/demo-login', async (req, res) => {
   try {
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEMO_LOGIN !== 'true') {
+      return res.status(403).json({ error: 'Demo login is disabled in production environments.' });
+    }
+
     const demoEmail = 'demo@opportunityradar.dev';
     let user = await db.queryOne('SELECT * FROM users WHERE email = $1', [demoEmail]);
 
@@ -304,17 +318,20 @@ router.post('/demo-login', async (req, res) => {
 
       await db.query(
         `INSERT INTO user_profiles (user_id, name, year_of_study, branch, college, skills, interests, location_pref, opportunity_types, onboarding_completed)
-         VALUES ($1, 'Priya Sharma', '3rd', 'Computer Science', 'IIT Bombay',
-                 ARRAY['Python', 'Machine Learning', 'React', 'Node.js', 'SQL'],
-                 ARRAY['AI/ML', 'Climate Tech', 'EdTech'],
-                 ARRAY['Remote', 'Bangalore', 'Mumbai'],
-                 ARRAY['internship', 'hackathon', 'scholarship'], TRUE)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          ON CONFLICT (user_id) DO NOTHING`,
-        [user.id, 'Priya Sharma', '3rd', 'Computer Science', 'IIT Bombay',
-         ['Python', 'Machine Learning', 'React', 'Node.js', 'SQL'],
-         ['AI/ML', 'Climate Tech', 'EdTech'],
-         ['Remote', 'Bangalore', 'Mumbai'],
-         ['internship', 'hackathon', 'scholarship'], null, null, null, null, true]
+        [
+          user.id,
+          'Priya Sharma',
+          '3rd',
+          'Computer Science',
+          'IIT Bombay',
+          ['Python', 'Machine Learning', 'React', 'Node.js', 'SQL'],
+          ['AI/ML', 'Climate Tech', 'EdTech'],
+          ['Remote', 'Bangalore', 'Mumbai'],
+          ['internship', 'hackathon', 'scholarship'],
+          true
+        ]
       );
     }
 
@@ -336,7 +353,6 @@ router.post('/demo-login', async (req, res) => {
         onboarding_completed: Boolean(profile?.onboarding_completed),
       },
       token: accessToken,
-      refreshToken,
     });
   } catch (err) {
     console.error('[auth] Demo login error:', err);
@@ -351,18 +367,24 @@ router.post('/magic-link', async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
     const cleanEmail = email.trim().toLowerCase();
+    const clientKey = `magic_${req.ip}_${cleanEmail}`;
+    const rateCheck = checkRateLimit(clientKey, 5);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({ error: `Too many magic link requests. Please try again in ${rateCheck.retryAfterSec} seconds.` });
+    }
+
     let user = await db.queryOne('SELECT * FROM users WHERE email = $1', [cleanEmail]);
 
     if (!user) {
       // Auto-create user for passwordless signup
       const userRes = await db.query(
         `INSERT INTO users (email, email_verified) VALUES ($1, FALSE) RETURNING *`,
-        [cleanEmail, null, false]
+        [cleanEmail]
       );
       user = userRes.rows[0];
       await db.query(
         `INSERT INTO user_profiles (user_id, name, onboarding_completed) VALUES ($1, $2, FALSE)`,
-        [user.id, cleanEmail.split('@')[0], '3rd', '', '', [], [], [], [], null, null, null, null, false]
+        [user.id, cleanEmail.split('@')[0]]
       );
     }
 
@@ -442,7 +464,6 @@ router.post('/verify-token', async (req, res) => {
         onboarding_completed: Boolean(profile?.onboarding_completed),
       },
       token: accessToken,
-      refreshToken,
     });
   } catch (err) {
     console.error('[auth] Verify token error:', err);
@@ -573,7 +594,6 @@ router.post('/refresh', async (req, res) => {
     res.json({
       ok: true,
       token: newAccessToken,
-      refreshToken: newRefreshToken,
     });
   } catch (err) {
     console.error('[auth] Refresh error:', err);
@@ -769,12 +789,12 @@ router.get('/oauth/:provider/callback', async (req, res) => {
       if (!user) {
         const uRes = await db.query(
           'INSERT INTO users (email, email_verified) VALUES ($1, TRUE) RETURNING *',
-          [cleanEmail, null, true]
+          [cleanEmail]
         );
         user = uRes.rows[0];
         await db.query(
           'INSERT INTO user_profiles (user_id, name, onboarding_completed) VALUES ($1, $2, FALSE)',
-          [user.id, name || cleanEmail.split('@')[0], '3rd', '', '', [], [], [], [], null, null, null, null, false]
+          [user.id, name || cleanEmail.split('@')[0]]
         );
       }
       await db.query(

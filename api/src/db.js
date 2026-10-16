@@ -270,11 +270,12 @@ function memoryQuery(text, params = []) {
       err.code = '23505';
       throw err;
     }
+    const emailVerified = /TRUE/i.test(t) ? true : (params[2] !== undefined ? Boolean(params[2]) : false);
     const user = {
       id: 'user-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
       email,
       password_hash: params[1],
-      email_verified: params[2] !== undefined ? params[2] : false,
+      email_verified: emailVerified,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -422,19 +423,51 @@ function memoryQuery(text, params = []) {
   // User Profile upsert (user_profiles or profiles)
   if (/INSERT INTO user_profiles/i.test(t) || /INSERT INTO profiles/i.test(t)) {
     const userId = params[0];
-    const name = params[1];
-    const year_of_study = params[2];
-    const branch = params[3];
-    const college = params[4];
-    const skills = params[5] || [];
-    const interests = params[6] || [];
-    const location_pref = params[7] || [];
-    const opportunity_types = params[8] || [];
-    const github_username = params[9] || null;
-    const linkedin_url = params[10] || null;
-    const resume_filename = params[11] || null;
-    const imported_data = params[12] || null;
-    const onboarding_completed = params[13] !== undefined ? params[13] : true;
+    const name = params[1] || 'Student';
+    let year_of_study = '3rd';
+    let branch = '';
+    let college = '';
+    let skills = [];
+    let interests = [];
+    let location_pref = [];
+    let opportunity_types = [];
+    let github_username = null;
+    let linkedin_url = null;
+    let resume_filename = null;
+    let imported_data = null;
+    let onboarding_completed = false;
+
+    if (params.length >= 10 && typeof params[2] === 'string' && (params[2].includes('1st') || params[2].includes('2nd') || params[2].includes('3rd') || params[2].includes('4th') || params[2].includes('Masters') || params[2].includes('PhD') || params[2].includes('PG'))) {
+      year_of_study = params[2];
+      branch = params[3] || '';
+      college = params[4] || '';
+      skills = Array.isArray(params[5]) ? params[5] : [];
+      interests = Array.isArray(params[6]) ? params[6] : [];
+      location_pref = Array.isArray(params[7]) ? params[7] : [];
+      opportunity_types = Array.isArray(params[8]) ? params[8] : [];
+      if (params.length === 10) {
+        onboarding_completed = Boolean(params[9]);
+      } else {
+        github_username = params[9] || null;
+        linkedin_url = params[10] || null;
+        resume_filename = params[11] || null;
+        imported_data = params[12] || null;
+        onboarding_completed = params[13] !== undefined ? Boolean(params[13]) : true;
+      }
+    } else if (params.length >= 14) {
+      year_of_study = params[2] || '3rd';
+      branch = params[3] || '';
+      college = params[4] || '';
+      skills = Array.isArray(params[5]) ? params[5] : [];
+      interests = Array.isArray(params[6]) ? params[6] : [];
+      location_pref = Array.isArray(params[7]) ? params[7] : [];
+      opportunity_types = Array.isArray(params[8]) ? params[8] : [];
+      github_username = params[9] || null;
+      linkedin_url = params[10] || null;
+      resume_filename = params[11] || null;
+      imported_data = params[12] || null;
+      onboarding_completed = params[13] !== undefined ? Boolean(params[13]) : true;
+    }
 
     const p = {
       id: 'prof-' + Date.now(),
@@ -553,12 +586,13 @@ function memoryQuery(text, params = []) {
       return {
         ...o,
         is_watching: isWatching,
-        match_status: match ? match.match_status : 'MATCH',
-        match_score: match ? match.match_score : 0.85,
-        match_reason: match ? match.reason : 'Matches academic discipline and skill profile',
+        match_status: match ? match.match_status : null,
+        match_score: match ? match.match_score : null,
+        match_reason: match ? match.reason : null,
+        match_evidence: match ? match.evidence : null,
         change_count: changes.length,
-        source_url: 'http://localhost:4000/opportunities',
-        source_label: 'OpportunityRadar Demo Portal',
+        source_url: o.source_url || 'http://localhost:4000/opportunities',
+        source_label: o.source_label || 'OpportunityRadar Demo Portal',
       };
     });
     return { rows, rowCount: rows.length };
@@ -640,24 +674,55 @@ function memoryQuery(text, params = []) {
 
   // Changes query
   if (/SELECT[\s\S]*FROM\s+changes/i.test(t)) {
-    let rows = memoryStore.changes;
-    if (/WHERE opportunity_id = \$1/i.test(t)) {
+    let rows = memoryStore.changes.map(c => {
+      const opp = memoryStore.opportunities.find(o => o.id === c.opportunity_id) || {};
+      const src = memoryStore.sources.find(s => s.id === opp.source_id) || {};
+      return {
+        ...c,
+        opp_title: opp.title || 'Opportunity Update',
+        opp_organizer: opp.organizer || '',
+        opp_type: opp.opp_type || 'internship',
+        apply_link: opp.apply_link || '',
+        source_url: src.url || c.source_link || 'http://localhost:4000/opportunities',
+        source_label: src.label || 'Demo Portal',
+      };
+    });
+    if (/WHERE c\.opportunity_id = \$1/i.test(t) || /WHERE opportunity_id = \$1/i.test(t)) {
       rows = rows.filter(c => c.opportunity_id === params[0]);
+    }
+    if (/WHERE o\.source_id = \$1/i.test(t)) {
+      const oppsForSrc = memoryStore.opportunities.filter(o => o.source_id === params[0]).map(o => o.id);
+      rows = rows.filter(c => oppsForSrc.includes(c.opportunity_id));
+    }
+    if (/change_type != 'COSMETIC'/i.test(t)) {
+      rows = rows.filter(c => c.change_type !== 'COSMETIC');
     }
     return { rows, rowCount: rows.length };
   }
 
   // Changes insert
   if (/INSERT INTO changes/i.test(t)) {
+    const hasExplicitId = /\(id\s*,/i.test(t);
+    const id = hasExplicitId ? params[0] : ('chg-' + Date.now());
+    const oppId = hasExplicitId ? params[1] : params[0];
+    const changeType = hasExplicitId ? params[2] : params[1];
+    const beforeData = hasExplicitId ? params[3] : params[2];
+    const afterData = hasExplicitId ? params[4] : params[3];
+    const explanation = hasExplicitId ? params[5] : params[4];
+    const detectedAt = (hasExplicitId && params[6]) || new Date().toISOString();
+    let parsedBefore = beforeData;
+    let parsedAfter = afterData;
+    try { if (typeof beforeData === 'string') parsedBefore = JSON.parse(beforeData); } catch {}
+    try { if (typeof afterData === 'string') parsedAfter = JSON.parse(afterData); } catch {}
     const c = {
-      id: 'chg-' + Date.now(),
-      opportunity_id: params[0],
-      change_type: params[1],
-      before_data: params[2],
-      after_data: params[3],
-      explanation: params[4],
-      source_link: params[5],
-      detected_at: new Date().toISOString(),
+      id,
+      opportunity_id: oppId,
+      change_type: changeType,
+      before_data: parsedBefore,
+      after_data: parsedAfter,
+      explanation,
+      source_link: 'http://localhost:4000/opportunities',
+      detected_at: detectedAt,
     };
     memoryStore.changes.unshift(c);
     return { rows: [c], rowCount: 1 };

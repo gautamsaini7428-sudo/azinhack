@@ -12,17 +12,42 @@ const db = require('./db');
 const { router: authRouter, requireAuth, JWT_SECRET } = require('./routes/auth');
 const opportunitiesRouter = require('./routes/opportunities');
 const sourcesRouter = require('./routes/sources');
+const changesRouter = require('./routes/changes');
 const { router: profileRouter } = require('./routes/profile');
 const alertsRouter = require('./routes/alerts');
 
 const app = express();
 const PORT = parseInt(process.env.API_PORT || '3001', 10);
 
+// ── Startup Security Verification ─────────────────────────────────────────────
+if (process.env.NODE_ENV === 'production') {
+  const secret = process.env.JWT_SECRET || '';
+  if (!secret || secret.length < 32 || /change_me|dev_key|example|never_in_production/i.test(secret)) {
+    console.error('[FATAL] A strong, non-default JWT_SECRET of at least 32 characters is required in production.');
+    process.exit(1);
+  }
+}
+
 // ── Middleware ────────────────────────────────────────────────────────────────
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.APP_URL || 'http://localhost:5173')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+if (process.env.NODE_ENV !== 'production') {
+  ['http://localhost:5173', 'http://127.0.0.1:5173'].forEach(o => {
+    if (!allowedOrigins.includes(o)) allowedOrigins.push(o);
+  });
+}
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Dynamic origin matching to support credentials with cookies across ports
-    callback(null, true);
+    // Allow non-browser agents, server-to-server calls, or curl with no origin header
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || (process.env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS policy.'));
   },
   credentials: true,
 }));
@@ -66,6 +91,7 @@ app.get('/health', async (_req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/opportunities', opportunitiesRouter);
 app.use('/api/sources', sourcesRouter);
+app.use('/api/changes', changesRouter);
 app.use('/api/profile', requireAuth, profileRouter);
 app.use('/api/alerts', requireAuth, alertsRouter);
 

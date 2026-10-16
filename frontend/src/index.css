@@ -2061,4 +2061,187 @@ p, span, label, input, button, select, textarea {
   color: var(--accent-green);
 }
 
+/* ── Keyboard Accessibility & Focus Rings ────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent-green) !important;
+  outline-offset: 2px !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 2px solid var(--accent-green) !important;
+  outline-offset: 2px !important;
+}
+
+/* Screen reader only utility */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Match status pill: Not Evaluated / Conservative Scoring */
+.status-unevaluated {
+  background-color: var(--bg-surface-hover) !important;
+  color: var(--ink-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.match-banner.status-unevaluated {
+  background-color: var(--bg-surface-subtle);
+  border-left: 3px solid var(--border-color);
+  color: var(--ink-secondary);
+}
+
+.status-badge-demo {
+  background-color: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+.status-badge-closed {
+  background-color: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #FCA5A5;
+}
+
+.status-badge-expired {
+  background-color: #F3F4F6;
+  color: #4B5563;
+  border: 1px solid #D1D5DB;
+}
+
+/* Breakdown lists inside detail modal */
+.breakdown-group {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+.breakdown-group-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.breakdown-group-title.confirmed { color: #166534; }
+.breakdown-group-title.conflicts { color: #991B1B; }
+.breakdown-group-title.unknown { color: #854D0E; }
+
+.breakdown-list {
+  list-style: none;
+  padding-left: 0.5rem;
+  margin: 0 0 0.5rem 0;
+}
+.breakdown-list li {
+  padding: 0.15rem 0;
+  line-height: 1.4;
+  position: relative;
+  padding-left: 1rem;
+}
+.breakdown-list.confirmed li::before { content: '✓'; position: absolute; left: 0; color: #166534; font-weight: bold; }
+.breakdown-list.conflicts li::before { content: '✕'; position: absolute; left: 0; color: #991B1B; font-weight: bold; }
+.breakdown-list.unknown li::before { content: '?'; position: absolute; left: 0; color: #854D0E; font-weight: bold; }
+
+/* ── Comprehensive Responsive Media Queries ────────────────────────────── */
+@media (max-width: 992px) {
+  .header-container {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+  }
+  .header-badges {
+    order: 3;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .header-user-section {
+    margin-left: auto;
+  }
+  .opp-cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+  .metric-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .main-nav {
+    padding: 0 0.75rem;
+    gap: 0.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .nav-tab {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.82rem;
+    flex-shrink: 0;
+  }
+  .view-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  .filter-group {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .filter-select {
+    flex: 1 1 140px;
+  }
+  .alerts-drawer {
+    width: 100vw;
+    max-width: 100vw;
+  }
+  .detail-modal {
+    width: 94vw;
+    max-width: 94vw;
+    max-height: 90vh;
+    padding: 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-title {
+    font-size: 1.25rem;
+  }
+  .brand-tagline {
+    display: none;
+  }
+  .metric-strip {
+    grid-template-columns: 1fr;
+  }
+  .opp-cards-grid {
+    grid-template-columns: 1fr;
+  }
+  .opp-card-actions {
+    flex-wrap: wrap;
+  }
+  .opp-card-actions .btn {
+    flex: 1 1 calc(50% - 0.5rem);
+    text-align: center;
+  }
+  .onboarding-card {
+    padding: 1.25rem;
+    margin: 1rem 0.5rem;
+  }
+}
+
 

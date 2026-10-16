@@ -1,8 +1,8 @@
 # Build stage
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json ./
-RUN npm install --omit=dev
+COPY package*.json ./
+RUN npm ci --omit=dev
 
 # Runtime stage
 FROM node:20-alpine AS runtime

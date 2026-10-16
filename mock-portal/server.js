@@ -103,6 +103,10 @@ let listings = generateSeedListings();
 
 // ── Public Listing Routes ───────────────────────────────────────────────────
 
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', service: 'mock-portal', listings: listings.length });
+});
+
 // All listings HTML page (rendered for crawlers and browser demo)
 app.get('/opportunities', (req, res) => {
   const html = buildHtml(listings);
@@ -126,9 +130,25 @@ app.get('/api/opportunities/:id', (req, res) => {
   res.json(listing);
 });
 
-// ── Admin Routes (Demo Simulation Controls) ─────────────────────────────────
+// ── Admin Authorization Middleware (Demo Simulation Controls) ──────────────
+app.use('/admin', (req, res, next) => {
+  // Disable in production unless explicitly permitted
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEMO_CONTROLS !== 'true') {
+    return res.status(403).json({ error: 'Demo admin controls are disabled in production' });
+  }
 
-// Update a listing's attributes (deadline, eligibility, status, etc.)
+  // If ADMIN_API_KEY is configured, require matching key
+  const configuredKey = process.env.ADMIN_API_KEY;
+  if (configuredKey) {
+    const providedKey = req.headers['x-admin-key'] || req.query.admin_key || (req.body && req.body.admin_key);
+    if (providedKey !== configuredKey) {
+      return res.status(401).json({ error: 'Unauthorized: invalid or missing admin key' });
+    }
+  }
+  next();
+});
+
+// Update a listing's attributes (deadline, eligibility, reward, status, etc.)
 app.post('/admin/update/:id', (req, res) => {
   const idx = listings.findIndex(l => l.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Not found' });

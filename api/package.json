@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "node test/auth.test.js"
+    "test": "node test/auth.test.js && node test/flows.test.js && node test/postgres.integration.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -182,6 +182,10 @@
               <label for="onboard-branch">Branch / Major</label>
               <input type="text" id="onboard-branch" placeholder="Computer Science" required />
             </div>
+            <div class="form-field">
+              <label for="onboard-gpa">GPA / CGPA (Optional)</label>
+              <input type="number" step="0.01" min="0" max="10" id="onboard-gpa" placeholder="e.g. 3.8 or 8.5" />
+            </div>
           </div>
 
           <div class="form-field">
@@ -426,9 +430,15 @@
 
             <div class="form-row two-col">
               <div class="form-group">
+                <label for="prof-gpa">Current GPA / CGPA (Optional)</label>
+                <input type="number" step="0.01" min="0" max="10" id="prof-gpa" placeholder="e.g. 3.8 or 8.5" />
+                <small class="form-hint">Used to evaluate minimum GPA criteria on listings.</small>
+              </div>
+              <div class="form-group">
                 <label for="prof-locations">Preferred Locations (comma-separated)</label>
                 <input type="text" id="prof-locations" placeholder="e.g. Remote, Bangalore, Delhi, Mumbai" />
               </div>
+            </div>
               <div class="form-group">
                 <label>Opportunity Types of Interest</label>
                 <div class="checkbox-row">
@@ -605,7 +615,7 @@
     </main>
 
     <!-- Notification Side Drawer -->
-    <aside id="alerts-drawer" class="alerts-drawer" aria-hidden="true">
+    <aside id="alerts-drawer" class="alerts-drawer" role="region" aria-label="Alerts and change feed" aria-hidden="true">
       <div class="drawer-header">
         <div class="drawer-title-group">
           <h3>Alerts & Change Feed</h3>
@@ -623,18 +633,18 @@
     </div> <!-- /view-dashboard -->
 
     <!-- Detail & Evidence Modal -->
-    <dialog id="detail-modal" class="detail-modal">
+    <dialog id="detail-modal" class="detail-modal" aria-labelledby="modal-title" aria-modal="true">
       <div class="modal-content" id="modal-body">
         <!-- Populated dynamically -->
       </div>
     </dialog>
 
     <!-- Add Source Modal -->
-    <dialog id="source-modal" class="detail-modal">
+    <dialog id="source-modal" class="detail-modal" aria-labelledby="source-modal-title" aria-modal="true">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>Add Source to Monitor</h3>
-          <button id="close-source-modal-btn" class="icon-button"><i data-lucide="x"></i></button>
+          <h3 id="source-modal-title">Add Source to Monitor</h3>
+          <button id="close-source-modal-btn" class="icon-button" aria-label="Close add source modal"><i data-lucide="x"></i></button>
         </div>
         <form id="new-source-form" class="source-modal-form">
           <div class="form-group">
@@ -660,6 +670,9 @@
 
     <!-- Toast container -->
     <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <!-- Live Announcer for screen readers -->
+    <div id="a11y-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   </div>
 
   <script type="module" src="/src/main.js"></script>
