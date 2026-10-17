@@ -437,24 +437,7 @@ function memoryQuery(text, params = []) {
     let imported_data = null;
     let onboarding_completed = false;
 
-    if (params.length >= 10 && typeof params[2] === 'string' && (params[2].includes('1st') || params[2].includes('2nd') || params[2].includes('3rd') || params[2].includes('4th') || params[2].includes('Masters') || params[2].includes('PhD') || params[2].includes('PG'))) {
-      year_of_study = params[2];
-      branch = params[3] || '';
-      college = params[4] || '';
-      skills = Array.isArray(params[5]) ? params[5] : [];
-      interests = Array.isArray(params[6]) ? params[6] : [];
-      location_pref = Array.isArray(params[7]) ? params[7] : [];
-      opportunity_types = Array.isArray(params[8]) ? params[8] : [];
-      if (params.length === 10) {
-        onboarding_completed = Boolean(params[9]);
-      } else {
-        github_username = params[9] || null;
-        linkedin_url = params[10] || null;
-        resume_filename = params[11] || null;
-        imported_data = params[12] || null;
-        onboarding_completed = params[13] !== undefined ? Boolean(params[13]) : true;
-      }
-    } else if (params.length >= 14) {
+    if (params.length >= 9) {
       year_of_study = params[2] || '3rd';
       branch = params[3] || '';
       college = params[4] || '';
@@ -462,12 +445,23 @@ function memoryQuery(text, params = []) {
       interests = Array.isArray(params[6]) ? params[6] : [];
       location_pref = Array.isArray(params[7]) ? params[7] : [];
       opportunity_types = Array.isArray(params[8]) ? params[8] : [];
-      github_username = params[9] || null;
-      linkedin_url = params[10] || null;
-      resume_filename = params[11] || null;
-      imported_data = params[12] || null;
-      onboarding_completed = params[13] !== undefined ? Boolean(params[13]) : true;
+
+      if (params.length === 10) {
+        onboarding_completed = Boolean(params[9]);
+      } else if (params.length >= 13) {
+        github_username = params[9] || null;
+        linkedin_url = params[10] || null;
+        resume_filename = params[11] || null;
+        imported_data = params[12] || null;
+        onboarding_completed = params[13] !== undefined ? Boolean(params[13]) : true;
+      }
     }
+
+    let parsedImp = imported_data;
+    if (typeof imported_data === 'string') {
+      try { parsedImp = JSON.parse(imported_data); } catch {}
+    }
+    const gpa = (parsedImp && typeof parsedImp === 'object') ? (parsedImp.gpa ?? parsedImp.cgpa ?? null) : null;
 
     const p = {
       id: 'prof-' + Date.now(),
@@ -484,17 +478,25 @@ function memoryQuery(text, params = []) {
       linkedin_url,
       resume_filename,
       imported_data,
+      gpa,
       onboarding_completed,
       updated_at: new Date().toISOString(),
     };
 
-    const upIdx = memoryStore.user_profiles.findIndex(x => x.user_id === userId);
-    if (upIdx >= 0) memoryStore.user_profiles[upIdx] = { ...memoryStore.user_profiles[upIdx], ...p };
-    else memoryStore.user_profiles.push(p);
+    const isUserProfilesTable = /INSERT INTO user_profiles/i.test(t);
+    const isLegacyProfilesTable = /INSERT INTO profiles\s*\(/i.test(t);
 
-    const prIdx = memoryStore.profiles.findIndex(x => x.user_id === userId);
-    if (prIdx >= 0) memoryStore.profiles[prIdx] = { ...memoryStore.profiles[prIdx], ...p };
-    else memoryStore.profiles.push(p);
+    if (isUserProfilesTable || !isLegacyProfilesTable) {
+      const upIdx = memoryStore.user_profiles.findIndex(x => x.user_id === userId);
+      if (upIdx >= 0) memoryStore.user_profiles[upIdx] = { ...memoryStore.user_profiles[upIdx], ...p };
+      else memoryStore.user_profiles.push(p);
+    }
+
+    if (isLegacyProfilesTable || !isUserProfilesTable) {
+      const prIdx = memoryStore.profiles.findIndex(x => x.user_id === userId);
+      if (prIdx >= 0) memoryStore.profiles[prIdx] = { ...memoryStore.profiles[prIdx], ...p };
+      else memoryStore.profiles.push(p);
+    }
 
     return { rows: [p], rowCount: 1 };
   }
@@ -564,9 +566,14 @@ function memoryQuery(text, params = []) {
 
     // Determine querying user if present in query
     let currentUserId = null;
-    if (params.length > 0) {
+    const userParamMatch = t.match(/mr\.user_id\s*=\s*\$([0-9]+)/i);
+    if (userParamMatch) {
+      const idx = parseInt(userParamMatch[1], 10) - 1;
+      if (params[idx]) currentUserId = params[idx];
+    }
+    if (!currentUserId && params.length > 0) {
       for (const p of params) {
-        if (typeof p === 'string' && (p.startsWith('user-') || p.startsWith('a0000000-'))) {
+        if (typeof p === 'string' && (p.startsWith('user-') || p.startsWith('a0000000-') || /^[0-9a-f-]{20,}$/i.test(p))) {
           currentUserId = p;
           break;
         }

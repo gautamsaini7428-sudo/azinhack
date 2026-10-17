@@ -6,6 +6,18 @@ const { clearAuthCookies } = require('./auth');
 
 const router = express.Router();
 
+function formatProfile(row) {
+  if (!row) return null;
+  const p = { ...row };
+  if (p.imported_data && typeof p.imported_data === 'string') {
+    try { p.imported_data = JSON.parse(p.imported_data); } catch {}
+  }
+  if ((p.gpa === undefined || p.gpa === null) && p.imported_data && typeof p.imported_data === 'object') {
+    p.gpa = p.imported_data.gpa ?? p.imported_data.cgpa ?? null;
+  }
+  return p;
+}
+
 // ── GET /api/profile ──────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
@@ -13,7 +25,7 @@ router.get('/', async (req, res) => {
     if (!profile) {
       profile = await db.queryOne('SELECT * FROM profiles WHERE user_id = $1', [req.user.userId]);
     }
-    res.json(profile || null);
+    res.json(profile ? formatProfile(profile) : null);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -110,10 +122,23 @@ router.put('/', async (req, res) => {
       ]
     ).catch(() => {});
 
-    // Recalculate matches asynchronously
-    recomputeMatches(req.user.userId).catch(e => console.error('[profile] recompute error:', e.message));
+    // Recalculate matches synchronously before returning so UI receives fresh matches
+    let matchError = null;
+    try {
+      await recomputeMatches(req.user.userId);
+    } catch (e) {
+      matchError = e.message;
+      console.error('[profile] recompute error:', e.message);
+    }
 
-    res.json(result.rows[0]);
+    const savedProfile = formatProfile(result.rows[0]);
+    res.json({
+      ok: true,
+      profile: savedProfile,
+      ...savedProfile,
+      matches_recomputed: !matchError,
+      ...(matchError ? { match_error: matchError } : {}),
+    });
   } catch (e) {
     console.error('[profile] update error:', e);
     res.status(500).json({ error: e.message });
@@ -174,9 +199,14 @@ router.post('/onboarding', async (req, res) => {
       ]
     );
 
-    recomputeMatches(req.user.userId).catch(e => console.error('[onboarding] match error:', e.message));
+    try {
+      await recomputeMatches(req.user.userId);
+    } catch (e) {
+      console.error('[onboarding] match error:', e.message);
+    }
 
-    res.json({ ok: true, profile: result.rows[0] });
+    const savedProfile = formatProfile(result.rows[0]);
+    res.json({ ok: true, profile: savedProfile, ...savedProfile });
   } catch (e) {
     console.error('[profile/onboarding] error:', e);
     res.status(500).json({ error: e.message });
@@ -392,30 +422,21 @@ router.delete('/account', async (req, res) => {
 // ── POST /api/profile/rematch ─────────────────────────────────────────────────
 router.post('/rematch', async (req, res) => {
   try {
-    res.json({ ok: true, message: 'Re-matching started in background' });
     await recomputeMatches(req.user.userId);
+    res.json({ ok: true, message: 'Matches recalculated successfully' });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
 async function recomputeMatches(userId) {
-  const profile = await db.queryOne('SELECT * FROM user_profiles WHERE user_id = $1', [userId]) ||
-                  await db.queryOne('SELECT * FROM profiles WHERE user_id = $1', [userId]);
+  let profile = await db.queryOne('SELECT * FROM user_profiles WHERE user_id = $1', [userId]) ||
+                await db.queryOne('SELECT * FROM profiles WHERE user_id = $1', [userId]);
   if (!profile) return;
-
-  if (profile.imported_data) {
-    let imp = profile.imported_data;
-    if (typeof imp === 'string') {
-      try { imp = JSON.parse(imp); } catch {}
-    }
-    if (!profile.gpa && imp && (imp.gpa || imp.cgpa)) {
-      profile.gpa = imp.gpa || imp.cgpa;
-    }
-  }
+  profile = formatProfile(profile);
 
   const opps = await db.query(
-    'SELECT * FROM opportunities WHERE is_active = TRUE ORDER BY created_at DESC LIMIT 100'
+    'SELECT * FROM opportunities WHERE (is_active = TRUE OR is_active IS NULL) ORDER BY created_at DESC LIMIT 100'
   );
 
   for (const opp of opps.rows) {

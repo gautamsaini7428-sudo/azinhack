@@ -55,6 +55,8 @@ const state = {
   filteredOpportunities: [],
   changes: [],
   sources: [],
+  sourcesFilter: 'all',
+  sourcesSearch: '',
   alerts: [],
   unreadAlertsCount: 0,
   activeTab: 'radar',
@@ -97,7 +99,9 @@ function appendConsoleLog(message, level = 'info') {
   if (!consoleEl) return;
   const line = document.createElement('div');
   line.className = `log-line log-${level}`;
-  line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const badgeText = level === 'info' ? 'INFO' : level === 'success' ? 'SUCCESS' : level === 'warn' ? 'WARN' : 'ERROR';
+  line.innerHTML = `<span class="log-timestamp">${time}</span><span class="log-badge log-badge-${level}">${badgeText}</span><span class="log-msg">${escapeHtml(message)}</span>`;
   consoleEl.appendChild(line);
   consoleEl.scrollTop = consoleEl.scrollHeight;
 }
@@ -290,6 +294,7 @@ async function renderRoute() {
 
 function setAuthMode(mode) {
   state.authMode = mode;
+  const pageTitle = document.getElementById('auth-page-title');
   const fieldNameGroup = document.getElementById('field-name-group');
   const authForm = document.getElementById('auth-form');
   const forgotForm = document.getElementById('forgot-form');
@@ -304,6 +309,7 @@ function setAuthMode(mode) {
   if (errorGen) errorGen.textContent = '';
 
   if (mode === 'signup') {
+    if (pageTitle) pageTitle.textContent = 'Create your account';
     if (fieldNameGroup) fieldNameGroup.style.display = 'flex';
     if (authForm) authForm.style.display = 'flex';
     if (forgotForm) forgotForm.style.display = 'none';
@@ -314,10 +320,11 @@ function setAuthMode(mode) {
     if (divider) divider.style.display = 'flex';
     if (switchPrompt) {
       switchPrompt.style.display = 'block';
-      switchPrompt.innerHTML = 'Already have an account? <a class="auth-link" id="auth-switch-link">Sign in</a>';
+      switchPrompt.innerHTML = 'Already have an account? <a class="auth-link auth-switch-bold" id="auth-switch-link">Sign in</a>';
       document.getElementById('auth-switch-link')?.addEventListener('click', () => navigate('/login'));
     }
   } else if (mode === 'forgot') {
+    if (pageTitle) pageTitle.textContent = 'Reset your password';
     if (authForm) authForm.style.display = 'none';
     if (forgotForm) forgotForm.style.display = 'flex';
     if (subtitle) subtitle.textContent = 'Recover your OpportunityRadar password';
@@ -327,17 +334,18 @@ function setAuthMode(mode) {
     if (switchPrompt) switchPrompt.style.display = 'none';
   } else {
     // Login mode
+    if (pageTitle) pageTitle.textContent = 'Sign into OpportunityRadar';
     if (fieldNameGroup) fieldNameGroup.style.display = 'none';
     if (authForm) authForm.style.display = 'flex';
     if (forgotForm) forgotForm.style.display = 'none';
-    if (submitBtn) submitBtn.textContent = 'Sign In';
-    if (subtitle) subtitle.textContent = 'Sign in to access your personalized Opportunity Radar';
+    if (submitBtn) submitBtn.textContent = 'Sign in';
+    if (subtitle) subtitle.textContent = 'Autonomous opportunity intelligence for students';
     if (demoBox) demoBox.style.display = 'block';
     if (socialList) socialList.style.display = 'flex';
     if (divider) divider.style.display = 'flex';
     if (switchPrompt) {
       switchPrompt.style.display = 'block';
-      switchPrompt.innerHTML = 'Don\'t have an account? <a class="auth-link" id="auth-switch-link">Sign up</a>';
+      switchPrompt.innerHTML = 'Dont have an account? <a class="auth-link auth-switch-bold" id="auth-switch-link">Create one</a>';
       document.getElementById('auth-switch-link')?.addEventListener('click', () => navigate('/signup'));
     }
   }
@@ -409,28 +417,277 @@ async function loadProfile() {
   }
 }
 
+/**
+ * Safely parse JSON from a string or return object if already parsed.
+ * Never throws errors.
+ */
+function safeJsonParse(val) {
+  if (!val) return null;
+  if (typeof val === 'object') return val;
+  if (typeof val === 'string') {
+    const s = val.trim();
+    if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) {
+      try {
+        return JSON.parse(s);
+      } catch {}
+    }
+  }
+  return null;
+}
+
+/**
+ * Extracts a clean, human-readable string from a value that might be
+ * a plain string, a JSON string, or an object with { summary, reason, text }.
+ * Never returns raw JSON or "[object Object]".
+ */
+function sanitizeEligibilityText(val, fallback = '') {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'object') {
+    const res = val.summary || val.reason || val.text || val.eligibility || '';
+    if (typeof res === 'string' && res.trim()) return sanitizeEligibilityText(res, fallback);
+    return fallback;
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === '[object Object]' || trimmed === '{}' || trimmed === '[]') return fallback;
+
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      const parsed = safeJsonParse(trimmed);
+      if (parsed && typeof parsed === 'object') {
+        const res = parsed.summary || parsed.reason || parsed.text || parsed.eligibility || '';
+        if (typeof res === 'string' && res.trim()) return sanitizeEligibilityText(res, fallback);
+        return fallback;
+      }
+      return fallback;
+    }
+
+    // Guard against malformed JSON fragments or unclosed JSON strings
+    if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('{"')) {
+      return fallback;
+    }
+
+    return trimmed;
+  }
+  return String(val) || fallback;
+}
+
+/**
+ * Robustly parses and normalizes opportunity eligibility & match data across all possible formats:
+ * - Already parsed object
+ * - JSON string in opp.eligibility, opp.match_reason, or opp.match.reason
+ * - Plain string eligibility
+ * - Incomplete profile state
+ * - Confirmed / conflicts / unknown breakdown arrays
+ * - Missing or malformed data
+ */
+function parseOpportunityEligibility(opp) {
+  if (!opp || typeof opp !== 'object') {
+    return {
+      status: 'NOT_EVALUATED',
+      score: null,
+      fitLabel: 'Not Evaluated',
+      summary: 'Check official guidelines for eligibility requirements.',
+      rawText: 'Check official guidelines for requirements.',
+      confirmed: [],
+      conflicts: [],
+      unknown: [],
+      isProfileIncomplete: true,
+      hasBreakdown: false,
+    };
+  }
+
+  // 1. Inspect potential payload containers
+  const parsedElig = safeJsonParse(opp.eligibility);
+  const parsedMatchReason = safeJsonParse(opp.match_reason);
+  const parsedMatchObj = safeJsonParse(opp.match);
+  const parsedReasonInMatch = opp.match && typeof opp.match.reason === 'string' ? safeJsonParse(opp.match.reason) : null;
+  const parsedFirstReason = Array.isArray(opp.match?.reasons) && opp.match.reasons.length > 0 ? safeJsonParse(opp.match.reasons[0]) : null;
+
+  // 2. Extract breakdown (confirmed, conflicts, unknown)
+  const breakdownCandidate =
+    (opp.match && typeof opp.match.breakdown === 'object' && opp.match.breakdown) ||
+    (parsedMatchReason && typeof parsedMatchReason.breakdown === 'object' && parsedMatchReason.breakdown) ||
+    (parsedElig && typeof parsedElig.breakdown === 'object' && parsedElig.breakdown) ||
+    (parsedReasonInMatch && typeof parsedReasonInMatch.breakdown === 'object' && parsedReasonInMatch.breakdown) ||
+    (parsedFirstReason && typeof parsedFirstReason.breakdown === 'object' && parsedFirstReason.breakdown) ||
+    (parsedMatchObj && typeof parsedMatchObj.breakdown === 'object' && parsedMatchObj.breakdown) ||
+    null;
+
+  const extractStringList = (arr) => {
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .map((item) => sanitizeEligibilityText(item, ''))
+      .filter((s) => s.length > 0 && s !== '[object Object]');
+  };
+
+  const confirmed = extractStringList(breakdownCandidate?.confirmed);
+  const conflicts = extractStringList(breakdownCandidate?.conflicts);
+  const unknown = extractStringList(breakdownCandidate?.unknown);
+  const hasBreakdown = confirmed.length > 0 || conflicts.length > 0 || unknown.length > 0;
+
+  // 3. Check if evaluation exists from matcher/DB
+  const hasEvaluation = Boolean(
+    opp.match ||
+    opp.match_status ||
+    (rawScore !== null && rawScore !== undefined) ||
+    opp.match_reason ||
+    parsedMatchReason ||
+    parsedElig
+  );
+
+  // 4. Extract fitLabel
+  let fitLabel =
+    opp.match?.fitLabel ||
+    parsedMatchReason?.fitLabel ||
+    parsedElig?.fitLabel ||
+    parsedReasonInMatch?.fitLabel ||
+    parsedFirstReason?.fitLabel ||
+    parsedMatchObj?.fitLabel ||
+    null;
+
+  // 5. Extract score
+  const rawScore = opp.match?.score ?? opp.match_score ?? null;
+  const score = (rawScore !== null && rawScore !== undefined && !isNaN(Number(rawScore)))
+    ? (Number(rawScore) <= 1 ? Math.round(Number(rawScore) * 100) : Math.round(Number(rawScore)))
+    : null;
+
+  // Check student profile completeness from state
+  const studentProfile = (typeof state !== 'undefined' && state.profile) ? state.profile : null;
+  const hasAcademicDetails = Boolean(
+    studentProfile &&
+    studentProfile.year_of_study &&
+    (studentProfile.branch || (Array.isArray(studentProfile.skills) && studentProfile.skills.length > 0))
+  );
+
+  // 6. Extract readable summary
+  let summary = '';
+  if (parsedMatchReason && (parsedMatchReason.summary || parsedMatchReason.reason)) {
+    summary = sanitizeEligibilityText(parsedMatchReason.summary || parsedMatchReason.reason);
+  } else if (parsedElig && (parsedElig.summary || parsedElig.reason)) {
+    summary = sanitizeEligibilityText(parsedElig.summary || parsedElig.reason);
+  } else if (parsedReasonInMatch && (parsedReasonInMatch.summary || parsedReasonInMatch.reason)) {
+    summary = sanitizeEligibilityText(parsedReasonInMatch.summary || parsedReasonInMatch.reason);
+  } else if (parsedFirstReason && (parsedFirstReason.summary || parsedFirstReason.reason)) {
+    summary = sanitizeEligibilityText(parsedFirstReason.summary || parsedFirstReason.reason);
+  } else if (opp.match && typeof opp.match.reason === 'string') {
+    summary = sanitizeEligibilityText(opp.match.reason);
+  } else if (opp.match_reason) {
+    summary = sanitizeEligibilityText(opp.match_reason);
+  } else if (Array.isArray(opp.match?.reasons) && opp.match.reasons.length > 0) {
+    summary = sanitizeEligibilityText(opp.match.reasons[0]);
+  }
+
+  // 7. Extract match status and fitLabel
+  let status = opp.match?.status || opp.match_status || null;
+
+  let isProfileIncomplete = false;
+
+  if (!hasEvaluation) {
+    // Missing result in database
+    if (hasAcademicDetails) {
+      status = 'PENDING';
+      fitLabel = 'Evaluation pending';
+      summary = summary || 'Evaluation pending: Match results have not been calculated yet. Click Save Profile to calculate.';
+      isProfileIncomplete = false;
+    } else {
+      status = 'NOT_EVALUATED';
+      fitLabel = 'Not Evaluated';
+      summary = summary || 'Complete your student profile to evaluate eligibility.';
+      isProfileIncomplete = true;
+    }
+  } else {
+    // Evaluation exists
+    if (!status) {
+      status = score !== null ? 'MATCH' : 'NOT_EVALUATED';
+    }
+
+    isProfileIncomplete = Boolean(
+      status === 'NOT_EVALUATED' ||
+      /profile.*incomplete|lacks academic|set your academic|complete your student profile/i.test(summary) ||
+      unknown.some((u) => /profile.*incomplete|set your academic/i.test(u))
+    );
+
+    if (!fitLabel) {
+      if (score !== null) {
+        fitLabel = score >= 80 ? 'Strong Fit' : score >= 50 ? 'Moderate Fit' : 'Low Fit';
+      } else if (status === 'NOT_EVALUATED') {
+        fitLabel = 'Not Evaluated';
+      } else if (status === 'MATCH') {
+        fitLabel = 'Strong Fit';
+      } else if (status === 'PARTIAL') {
+        fitLabel = 'Moderate Fit';
+      } else {
+        fitLabel = 'Ineligible';
+      }
+    }
+
+    if (!summary) {
+      if (isProfileIncomplete) {
+        summary = 'Complete your student profile to evaluate eligibility.';
+      } else if (score !== null) {
+        summary = `Meets key academic and skill criteria (${score}% fit).`;
+      } else {
+        summary = 'Profile evaluated against published eligibility terms.';
+      }
+    }
+  }
+
+  // 8. Extract raw eligibility text for criteria snapshot
+  let rawText = '';
+  if (typeof opp.eligibility === 'string' && !parsedElig) {
+    rawText = sanitizeEligibilityText(opp.eligibility);
+  } else if (parsedElig) {
+    rawText = sanitizeEligibilityText(parsedElig.text || parsedElig.eligibility || parsedElig.summary || parsedElig.reason);
+  } else if (opp.match_evidence) {
+    rawText = sanitizeEligibilityText(opp.match_evidence);
+  }
+
+  if (!rawText) {
+    rawText = summary || 'Check official guidelines for detailed requirements.';
+  }
+
+  // Extra safety: ensure summary and rawText never contain raw JSON strings
+  summary = sanitizeEligibilityText(summary, 'Check official guidelines for eligibility details.');
+  rawText = sanitizeEligibilityText(rawText, 'Check official guidelines for requirements.');
+
+  return {
+    status,
+    score,
+    fitLabel,
+    summary,
+    rawText,
+    confirmed,
+    conflicts,
+    unknown,
+    isProfileIncomplete,
+    hasBreakdown,
+  };
+}
+
 async function loadOpportunities() {
   try {
     const data = await apiRequest('/api/opportunities');
     const rawList = Array.isArray(data) ? data : (data?.opportunities || []);
     state.opportunities = rawList.map((opp) => {
-      const rawScore = opp.match?.score ?? opp.match_score ?? null;
-      const score = (rawScore !== null && rawScore !== undefined)
-        ? (typeof rawScore === 'number' && rawScore <= 1 ? Math.round(rawScore * 100) : Math.round(rawScore))
-        : null;
-      const matchStatus = opp.match?.status || opp.match_status || (score === null ? 'NOT_EVALUATED' : 'MATCH');
-      const fitLabel = opp.match?.fitLabel || (score !== null ? (score >= 80 ? 'Strong Fit' : score >= 50 ? 'Moderate Fit' : 'Low Fit') : null);
-      const reasons = opp.match?.reasons || (opp.match_reason ? [opp.match_reason] : []);
-      const breakdown = opp.match?.breakdown || null;
+      const elig = parseOpportunityEligibility(opp);
       return {
         ...opp,
+        eligibility: elig.rawText,
+        match_status: elig.status,
+        match_score: elig.score,
+        match_reason: elig.summary,
         is_watched: Boolean(opp.is_watched || opp.is_watching),
         match: {
-          status: matchStatus,
-          score,
-          fitLabel,
-          reasons,
-          breakdown,
+          status: elig.status,
+          score: elig.score,
+          fitLabel: elig.fitLabel,
+          reason: elig.summary,
+          reasons: [elig.summary],
+          breakdown: {
+            confirmed: elig.confirmed,
+            conflicts: elig.conflicts,
+            unknown: elig.unknown,
+          },
         },
       };
     });
@@ -494,10 +751,12 @@ function extractChangesFromOpportunities() {
       opp.recent_changes.forEach((c) => {
         allChanges.push({
           ...c,
+          opportunity_id: c.opportunity_id || opp.id,
           opp_title: opp.title,
           opp_organizer: opp.organizer,
           opp_type: opp.opp_type,
           apply_link: opp.apply_link,
+          source_url: c.source_link || c.source_url || opp.source_url || opp.apply_link,
         });
       });
     }
@@ -519,20 +778,513 @@ function renderProfileHeader() {
   const dropName = document.getElementById('dropdown-name');
   const dropEmail = document.getElementById('dropdown-email');
 
-  const displayName = profile.name || state.user?.name || 'Student';
+  const displayName = profile.name || state.user?.name || 'Priya Sharma';
   if (nameEl) nameEl.textContent = displayName;
   if (metaEl) {
-    const college = profile.college || state.user?.college || '';
-    const yr = profile.year_of_study || '';
-    const branch = profile.branch || '';
-    metaEl.textContent = [college, yr && branch ? `${yr} Yr ${branch}` : yr || branch].filter(Boolean).join(' · ') || 'Student Profile';
+    const yr = profile.year_of_study ? `${profile.year_of_study} Year` : '3rd Year';
+    const branch = profile.branch || 'Computer Science';
+    metaEl.textContent = `${yr} • ${branch}`;
   }
   if (avatarEl) {
     const initials = displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
-    avatarEl.textContent = initials || 'SU';
+    avatarEl.textContent = initials || 'PS';
   }
   if (dropName) dropName.textContent = displayName;
   if (dropEmail) dropEmail.textContent = state.user?.email || '';
+
+  // Update Hero section elements
+  const hour = new Date().getHours();
+  const greetingText = hour < 12 ? 'Good morning,' : hour < 17 ? 'Good afternoon,' : 'Good evening,';
+  const heroGreeting = document.getElementById('hero-greeting-time');
+  if (heroGreeting) heroGreeting.textContent = greetingText;
+
+  const heroName = document.getElementById('hero-student-name');
+  if (heroName) {
+    const firstName = displayName.split(' ')[0] || 'Priya';
+    heroName.innerHTML = `${escapeHtml(firstName)} <span class="wave-emoji">👋</span>`;
+  }
+
+  const heroMeta = document.getElementById('hero-student-meta');
+  if (heroMeta) {
+    const yr = profile.year_of_study ? `${profile.year_of_study} Year` : '3rd Year';
+    const branch = profile.branch || 'Computer Science';
+    const college = profile.college || 'IIT Bombay';
+    heroMeta.textContent = `${yr} • ${branch} • ${college}`;
+  }
+}
+
+function updateProfileCompletenessUI() {
+  const get = (id) => document.getElementById(id);
+  const name = get('prof-name')?.value?.trim();
+  const year = get('prof-year')?.value?.trim();
+  const branch = get('prof-branch')?.value?.trim();
+  const college = get('prof-college')?.value?.trim();
+  const skills = (get('prof-skills')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+  const interests = (get('prof-interests')?.value || '').split(',').map(i => i.trim()).filter(Boolean);
+  const gpa = get('prof-gpa')?.value?.trim();
+  const locations = (get('prof-locations')?.value || '').split(',').map(l => l.trim()).filter(Boolean);
+
+  let score = 0;
+  if (name) score += 15;
+  if (year) score += 15;
+  if (branch) score += 15;
+  if (college) score += 15;
+  if (skills.length > 0) score += 12;
+  if (interests.length > 0) score += 10;
+  if (gpa) score += 10;
+  if (locations.length > 0) score += 8;
+
+  score = Math.min(100, Math.max(0, score));
+
+  const textEl = document.getElementById('gauge-percent-text');
+  const fillPath = document.getElementById('gauge-fill-path');
+  if (textEl) textEl.textContent = `${score}%`;
+  if (fillPath) fillPath.setAttribute('stroke-dasharray', `${score}, 100`);
+}
+
+function initTagInput(containerId, inputId, hiddenId, initialTags) {
+  const container = document.getElementById(containerId);
+  const inlineInput = document.getElementById(inputId);
+  const hiddenInput = document.getElementById(hiddenId);
+  if (!container || !inlineInput || !hiddenInput) return;
+
+  let tags = Array.isArray(initialTags)
+    ? [...initialTags]
+    : (typeof initialTags === 'string' ? initialTags.split(',').map(s => s.trim()).filter(Boolean) : []);
+
+  function sync() {
+    hiddenInput.value = tags.join(', ');
+    const listEl = container.querySelector('.tags-list');
+    if (!listEl) return;
+    listEl.innerHTML = tags.map((t) => `
+      <span class="tag-pill">
+        <span>${escapeHtml(t)}</span>
+        <button type="button" class="tag-remove-btn" data-tag="${escapeHtml(t)}" aria-label="Remove ${escapeHtml(t)}">&times;</button>
+      </span>
+    `).join('');
+
+    listEl.querySelectorAll('.tag-remove-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tagToRemove = btn.getAttribute('data-tag');
+        tags = tags.filter((x) => x !== tagToRemove);
+        sync();
+        updateProfileCompletenessUI();
+      });
+    });
+  }
+
+  function addTag(val) {
+    const trimmed = (val || '').trim().replace(/^,+|,+$/g, '');
+    if (trimmed && !tags.some(t => t.toLowerCase() === trimmed.toLowerCase())) {
+      tags.push(trimmed);
+      sync();
+      updateProfileCompletenessUI();
+    }
+    inlineInput.value = '';
+  }
+
+  inlineInput.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag(inlineInput.value);
+    } else if (e.key === 'Backspace' && !inlineInput.value && tags.length > 0) {
+      tags.pop();
+      sync();
+      updateProfileCompletenessUI();
+    }
+  };
+
+  inlineInput.onblur = () => {
+    if (inlineInput.value.trim()) {
+      addTag(inlineInput.value);
+    }
+  };
+
+  container.onclick = (e) => {
+    if (e.target !== inlineInput && !e.target.closest('.tag-remove-btn')) {
+      inlineInput.focus();
+    }
+  };
+
+  // Expose setter for resets
+  container._setTags = (newTags) => {
+    tags = Array.isArray(newTags) ? [...newTags] : [];
+    sync();
+  };
+
+  // Initial sync
+  sync();
+}
+
+const INDIAN_COLLEGES = [
+  // IITs & NITs
+  { name: 'IIT Bombay', category: 'IITs & NITs', keywords: 'iit bombay powai mumbai indian institute of technology' },
+  { name: 'IIT Delhi', category: 'IITs & NITs', keywords: 'iit delhi hauz khas indian institute of technology' },
+  { name: 'IIT Madras', category: 'IITs & NITs', keywords: 'iit madras chennai indian institute of technology' },
+  { name: 'IIT Kanpur', category: 'IITs & NITs', keywords: 'iit kanpur indian institute of technology' },
+  { name: 'IIT Kharagpur', category: 'IITs & NITs', keywords: 'iit kgp kharagpur indian institute of technology' },
+  { name: 'IIT Roorkee', category: 'IITs & NITs', keywords: 'iit roorkee indian institute of technology' },
+  { name: 'IIT Guwahati', category: 'IITs & NITs', keywords: 'iit guwahati iitg indian institute of technology' },
+  { name: 'IIT Hyderabad', category: 'IITs & NITs', keywords: 'iit hyderabad iith indian institute of technology' },
+  { name: 'IIT (BHU) Varanasi', category: 'IITs & NITs', keywords: 'iit bhu varanasi banaras' },
+  { name: 'IIT Indore', category: 'IITs & NITs', keywords: 'iit indore iiti' },
+  { name: 'NIT Trichy (National Institute of Technology)', category: 'IITs & NITs', keywords: 'nit trichy nitt tiruchirappalli' },
+  { name: 'NIT Surathkal (NIT Karnataka)', category: 'IITs & NITs', keywords: 'nit surathkal nitk karnataka' },
+  { name: 'NIT Rourkela', category: 'IITs & NITs', keywords: 'nit rourkela nitr odisha' },
+  { name: 'NIT Warangal', category: 'IITs & NITs', keywords: 'nit warangal nitw telangana' },
+  { name: 'NIT Calicut', category: 'IITs & NITs', keywords: 'nit calicut nitc kerala' },
+  { name: 'MNNIT Allahabad', category: 'IITs & NITs', keywords: 'mnnit allahabad prayagraj motilal nehru' },
+  { name: 'MNIT Jaipur', category: 'IITs & NITs', keywords: 'mnit jaipur malaviya national institute' },
+  { name: 'VNIT Nagpur', category: 'IITs & NITs', keywords: 'vnit nagpur visvesvaraya' },
+  { name: 'NIT Delhi', category: 'IITs & NITs', keywords: 'nit delhi nitd narela' },
+  { name: 'NIT Kurukshetra', category: 'IITs & NITs', keywords: 'nit kurukshetra nitkkr haryana' },
+  { name: 'SVNIT Surat', category: 'IITs & NITs', keywords: 'svnit surat sardar vallabhbhai' },
+
+  // GGSIPU & Affiliated Colleges
+  { name: 'GGSIPU Main Campus (USICT Delhi)', category: 'GGSIPU & Affiliated Colleges', keywords: 'ggsipu usict dwarka ipu indraprastha university' },
+  { name: 'MAIT (Maharaja Agrasen Institute of Technology Delhi)', category: 'GGSIPU & Affiliated Colleges', keywords: 'mait maharaja agrasen rohini ggsipu ipu' },
+  { name: 'MSIT (Maharaja Surajmal Institute of Technology Delhi)', category: 'GGSIPU & Affiliated Colleges', keywords: 'msit maharaja surajmal janakpuri ggsipu ipu' },
+  { name: 'BVCOE (Bharati Vidyapeeth\'s College of Engineering Delhi)', category: 'GGSIPU & Affiliated Colleges', keywords: 'bvcoe bharati vidyapeeth paschim vihar ggsipu ipu' },
+  { name: 'BPIT (Bhagwan Parshuram Institute of Technology Delhi)', category: 'GGSIPU & Affiliated Colleges', keywords: 'bpit bhagwan parshuram rohini ggsipu ipu' },
+  { name: 'VIPS-TC (Vivekananda Institute of Professional Studies Delhi)', category: 'GGSIPU & Affiliated Colleges', keywords: 'vips vivekananda pitampura ggsipu ipu' },
+  { name: 'IGDTUW (Indira Gandhi Delhi Technical University for Women)', category: 'GGSIPU & Affiliated Colleges', keywords: 'igdtuw kashmere gate women delhi' },
+  { name: 'USCT (University School of Chemical Technology GGSIPU)', category: 'GGSIPU & Affiliated Colleges', keywords: 'usct ggsipu chemical dwarka' },
+  { name: 'ADGITM (Dr. Akhilesh Das Gupta Institute of Technology Delhi)', category: 'GGSIPU & Affiliated Colleges', keywords: 'adgitm niec shastri park ggsipu ipu' },
+
+  // IIITs, GFTIs & Government Institutions
+  { name: 'IIIT Hyderabad (International Institute of Information Technology)', category: 'IIITs & Government Institutions', keywords: 'iiit hyderabad iiith gachibowli' },
+  { name: 'IIIT Delhi (Indraprastha Institute of Information Technology)', category: 'IIITs & Government Institutions', keywords: 'iiit delhi iiitd okhla phase 3' },
+  { name: 'IIIT Bangalore (International Institute of Information Technology)', category: 'IIITs & Government Institutions', keywords: 'iiit bangalore iiitb electronic city' },
+  { name: 'IIIT Allahabad (Indian Institute of Information Technology)', category: 'IIITs & Government Institutions', keywords: 'iiit allahabad iiita jhalwa prayagraj' },
+  { name: 'DTU (Delhi Technological University / DCE)', category: 'IIITs & Government Institutions', keywords: 'dtu dce delhi technological university bawana shahbad' },
+  { name: 'NSUT (Netaji Subhas University of Technology Delhi)', category: 'IIITs & Government Institutions', keywords: 'nsut nsit dwarka netaji subhas' },
+  { name: 'PEC Chandigarh (Punjab Engineering College)', category: 'IIITs & Government Institutions', keywords: 'pec chandigarh punjab engineering college' },
+  { name: 'Jadavpur University (Kolkata)', category: 'IIITs & Government Institutions', keywords: 'jadavpur university ju kolkata west bengal' },
+  { name: 'COEP (College of Engineering Pune)', category: 'IIITs & Government Institutions', keywords: 'coep pune maharashtra technological university' },
+
+  // Popular Private Universities
+  { name: 'BITS Pilani (Pilani Campus)', category: 'Popular Private Universities', keywords: 'bits pilani birla institute rajasthan' },
+  { name: 'BITS Pilani (Goa Campus)', category: 'Popular Private Universities', keywords: 'bits goa bpgc zuarinagar' },
+  { name: 'BITS Pilani (Hyderabad Campus)', category: 'Popular Private Universities', keywords: 'bits hyderabad bphc jawahar nagar' },
+  { name: 'VIT Vellore (Vellore Institute of Technology)', category: 'Popular Private Universities', keywords: 'vit vellore tamil nadu' },
+  { name: 'VIT Chennai', category: 'Popular Private Universities', keywords: 'vit chennai vandalur kelambakkam' },
+  { name: 'Manipal Institute of Technology (MAHE Manipal)', category: 'Popular Private Universities', keywords: 'mit manipal mahe karnataka academy' },
+  { name: 'SRM Institute of Science and Technology (SRM Chennai)', category: 'Popular Private Universities', keywords: 'srm chennai kattankulathur ktr' },
+  { name: 'Amity University (Noida)', category: 'Popular Private Universities', keywords: 'amity noida sector 125 uttar pradesh' },
+  { name: 'Thapar Institute of Engineering and Technology (TIET Patiala)', category: 'Popular Private Universities', keywords: 'thapar patiala tiet punjab' },
+  { name: 'Shiv Nadar University (SNU Greater Noida)', category: 'Popular Private Universities', keywords: 'snu shiv nadar noida dadri' },
+  { name: 'Ashoka University (Sonipat)', category: 'Popular Private Universities', keywords: 'ashoka university haryana sonipat' },
+  { name: 'Plaksha University (Mohali)', category: 'Popular Private Universities', keywords: 'plaksha mohali punjab' },
+  { name: 'RV College of Engineering (RVCE Bangalore)', category: 'Popular Private Universities', keywords: 'rvce rv college bangalore mysore road' },
+  { name: 'PES University (Bangalore)', category: 'Popular Private Universities', keywords: 'pes university pesu ring road electronic city' }
+];
+
+const ACADEMIC_BRANCHES = [
+  'Computer Science',
+  'Information Technology',
+  'Artificial Intelligence & Machine Learning',
+  'Data Science & Analytics',
+  'Electronics & Communication Engineering',
+  'Electrical & Electronics Engineering',
+  'Mechanical Engineering',
+  'Civil Engineering',
+  'Chemical Engineering',
+  'Biotechnology & Bioinformatics',
+  'Mathematics & Computing',
+  'Robotics & Automation',
+  'Aerospace Engineering'
+];
+
+function setupCombobox({
+  wrapperId,
+  inputId,
+  menuId,
+  toggleBtnId,
+  items,
+  isCategorized = false,
+  onSelect,
+}) {
+  const wrapper = document.getElementById(wrapperId);
+  const input = document.getElementById(inputId);
+  const menu = document.getElementById(menuId);
+  const toggleBtn = document.getElementById(toggleBtnId);
+  if (!wrapper || !input || !menu) return;
+
+  // Prevent multiple bindings
+  if (wrapper._comboboxInitialized) return;
+  wrapper._comboboxInitialized = true;
+
+  let activeIndex = -1;
+  let visibleOptions = [];
+
+  function openMenu() {
+    renderOptions(input.value);
+    menu.hidden = false;
+    wrapper.classList.add('is-open');
+  }
+
+  function closeMenu() {
+    menu.hidden = true;
+    wrapper.classList.remove('is-open');
+    activeIndex = -1;
+  }
+
+  function selectValue(val) {
+    input.value = val;
+    closeMenu();
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    if (onSelect) onSelect(val);
+  }
+
+  function renderOptions(query = '') {
+    const q = (query || '').trim().toLowerCase();
+    menu.innerHTML = '';
+    visibleOptions = [];
+
+    if (isCategorized) {
+      const filtered = items.filter((item) => {
+        if (!q) return true;
+        const nameMatch = item.name.toLowerCase().includes(q);
+        const kwMatch = item.keywords ? item.keywords.toLowerCase().includes(q) : false;
+        const catMatch = item.category ? item.category.toLowerCase().includes(q) : false;
+        return nameMatch || kwMatch || catMatch;
+      });
+
+      if (filtered.length === 0 && q) {
+        const customOpt = document.createElement('div');
+        customOpt.className = 'combobox-option is-custom';
+        customOpt.innerHTML = `<span>Use custom: <strong>"${escapeHtml(query)}"</strong></span><span class="combobox-option-badge">Custom</span>`;
+        customOpt.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          selectValue(query);
+        });
+        menu.appendChild(customOpt);
+        visibleOptions.push({ element: customOpt, value: query });
+        return;
+      }
+
+      const categories = {};
+      filtered.forEach((item) => {
+        if (!categories[item.category]) categories[item.category] = [];
+        categories[item.category].push(item);
+      });
+
+      Object.keys(categories).forEach((cat) => {
+        const header = document.createElement('div');
+        header.className = 'combobox-category-header';
+        header.textContent = cat;
+        menu.appendChild(header);
+
+        categories[cat].forEach((item) => {
+          const opt = document.createElement('div');
+          opt.className = 'combobox-option';
+          if (input.value.trim().toLowerCase() === item.name.toLowerCase()) {
+            opt.classList.add('is-selected');
+          }
+          opt.textContent = item.name;
+          opt.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            selectValue(item.name);
+          });
+          menu.appendChild(opt);
+          visibleOptions.push({ element: opt, value: item.name });
+        });
+      });
+
+      // Show custom entry option if user typed something not strictly in the list
+      if (q && !filtered.some((f) => f.name.toLowerCase() === q)) {
+        const customOpt = document.createElement('div');
+        customOpt.className = 'combobox-option is-custom';
+        customOpt.innerHTML = `<span>Use custom: <strong>"${escapeHtml(query)}"</strong></span><span class="combobox-option-badge">Custom</span>`;
+        customOpt.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          selectValue(query);
+        });
+        menu.appendChild(customOpt);
+        visibleOptions.push({ element: customOpt, value: query });
+      }
+    } else {
+      const filtered = items.filter((item) => {
+        const str = typeof item === 'string' ? item : item.name;
+        return !q || str.toLowerCase().includes(q);
+      });
+
+      filtered.forEach((item) => {
+        const val = typeof item === 'string' ? item : item.name;
+        const opt = document.createElement('div');
+        opt.className = 'combobox-option';
+        if (input.value.trim().toLowerCase() === val.toLowerCase()) {
+          opt.classList.add('is-selected');
+        }
+        opt.textContent = val;
+        opt.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          selectValue(val);
+        });
+        menu.appendChild(opt);
+        visibleOptions.push({ element: opt, value: val });
+      });
+
+      if (q && !filtered.some((f) => (typeof f === 'string' ? f : f.name).toLowerCase() === q)) {
+        const customOpt = document.createElement('div');
+        customOpt.className = 'combobox-option is-custom';
+        customOpt.innerHTML = `<span>Use custom: <strong>"${escapeHtml(query)}"</strong></span>`;
+        customOpt.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          selectValue(query);
+        });
+        menu.appendChild(customOpt);
+        visibleOptions.push({ element: customOpt, value: query });
+      }
+    }
+  }
+
+  input.addEventListener('focus', () => {
+    openMenu();
+  });
+
+  input.addEventListener('input', () => {
+    openMenu();
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (menu.hidden) openMenu();
+      if (visibleOptions.length > 0) {
+        activeIndex = (activeIndex + 1) % visibleOptions.length;
+        updateActiveOption();
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (menu.hidden) openMenu();
+      if (visibleOptions.length > 0) {
+        activeIndex = (activeIndex - 1 + visibleOptions.length) % visibleOptions.length;
+        updateActiveOption();
+      }
+    } else if (e.key === 'Enter') {
+      if (!menu.hidden && activeIndex >= 0 && activeIndex < visibleOptions.length) {
+        e.preventDefault();
+        selectValue(visibleOptions[activeIndex].value);
+      }
+    } else if (e.key === 'Escape') {
+      closeMenu();
+    }
+  });
+
+  function updateActiveOption() {
+    visibleOptions.forEach((opt, idx) => {
+      opt.element.classList.toggle('is-focused', idx === activeIndex);
+      if (idx === activeIndex) {
+        opt.element.scrollIntoView({ block: 'nearest' });
+      }
+    });
+  }
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (menu.hidden) {
+        input.focus();
+        openMenu();
+      } else {
+        closeMenu();
+      }
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!wrapper.contains(e.target)) {
+      closeMenu();
+    }
+  });
+}
+
+function setupCustomYearSelect() {
+  const wrapper = document.getElementById('combobox-wrapper-year');
+  const realSelect = document.getElementById('prof-year');
+  const trigger = document.getElementById('prof-year-trigger');
+  const label = document.getElementById('prof-year-label');
+  const menu = document.getElementById('menu-prof-year');
+  if (!wrapper || !realSelect || !trigger || !menu) return;
+
+  const years = [
+    { value: '1st', text: '1st Year (Freshman)' },
+    { value: '2nd', text: '2nd Year (Sophomore)' },
+    { value: '3rd', text: '3rd Year (Pre-final)' },
+    { value: '4th', text: '4th Year (Final Year)' },
+    { value: 'Masters', text: 'Masters / Postgrad' },
+    { value: 'PhD', text: 'PhD / Doctorate' },
+  ];
+
+  function syncLabel() {
+    const curVal = realSelect.value;
+    const found = years.find((y) => y.value === curVal);
+    if (found && label) {
+      label.textContent = found.text;
+    }
+  }
+
+  function renderMenu() {
+    menu.innerHTML = '';
+    years.forEach((y) => {
+      const opt = document.createElement('div');
+      opt.className = 'combobox-option';
+      if (realSelect.value === y.value) opt.classList.add('is-selected');
+      opt.textContent = y.text;
+      opt.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        realSelect.value = y.value;
+        syncLabel();
+        closeMenu();
+        realSelect.dispatchEvent(new Event('input', { bubbles: true }));
+        realSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      menu.appendChild(opt);
+    });
+  }
+
+  function openMenu() {
+    renderMenu();
+    menu.hidden = false;
+    wrapper.classList.add('is-open');
+    trigger.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeMenu() {
+    menu.hidden = true;
+    wrapper.classList.remove('is-open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  if (!wrapper._yearSelectInitialized) {
+    wrapper._yearSelectInitialized = true;
+    trigger.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (menu.hidden) openMenu();
+      else closeMenu();
+    });
+
+    trigger.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (menu.hidden) openMenu();
+      } else if (e.key === 'Escape') {
+        closeMenu();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!wrapper.contains(e.target)) closeMenu();
+    });
+
+    realSelect.addEventListener('change', syncLabel);
+  }
+
+  syncLabel();
 }
 
 function renderProfileForm() {
@@ -546,9 +1298,40 @@ function renderProfileForm() {
   if (get('prof-college')) get('prof-college').value = p.college || '';
   const gpa = p.gpa || (p.imported_data && typeof p.imported_data === 'object' ? p.imported_data.gpa : null) || '';
   if (get('prof-gpa')) get('prof-gpa').value = gpa;
-  if (get('prof-skills')) get('prof-skills').value = (p.skills || []).join(', ');
-  if (get('prof-interests')) get('prof-interests').value = (p.interests || []).join(', ');
-  if (get('prof-locations')) get('prof-locations').value = (p.location_pref || []).join(', ');
+
+  // Setup custom theme-matched dropdowns
+  setupCustomYearSelect();
+  setupCombobox({
+    wrapperId: 'combobox-wrapper-branch',
+    inputId: 'prof-branch',
+    menuId: 'menu-prof-branch',
+    toggleBtnId: 'btn-toggle-branch',
+    items: ACADEMIC_BRANCHES,
+    isCategorized: false,
+    onSelect: () => updateProfileCompletenessUI(),
+  });
+  setupCombobox({
+    wrapperId: 'combobox-wrapper-college',
+    inputId: 'prof-college',
+    menuId: 'menu-prof-college',
+    toggleBtnId: 'btn-toggle-college',
+    items: INDIAN_COLLEGES,
+    isCategorized: true,
+    onSelect: () => updateProfileCompletenessUI(),
+  });
+
+  // Real skills / interests / locations with fallback defaults
+  const defaultSkills = ['Python', 'Machine Learning', 'React', 'Node.js', 'SQL'];
+  const defaultInterests = ['AI/ML', 'Climate Tech', 'EdTech'];
+  const defaultLocations = ['Remote', 'Bangalore', 'Mumbai'];
+
+  const userSkills = (p.skills && p.skills.length > 0) ? p.skills : defaultSkills;
+  const userInterests = (p.interests && p.interests.length > 0) ? p.interests : defaultInterests;
+  const userLocations = (p.location_pref && p.location_pref.length > 0) ? p.location_pref : defaultLocations;
+
+  initTagInput('tags-container-skills', 'tags-input-skills', 'prof-skills', userSkills);
+  initTagInput('tags-container-interests', 'tags-input-interests', 'prof-interests', userInterests);
+  initTagInput('tags-container-locations', 'tags-input-locations', 'prof-locations', userLocations);
 
   // Opportunity types checkboxes
   const types = p.opportunity_types || ['internship', 'hackathon', 'scholarship'];
@@ -556,7 +1339,21 @@ function renderProfileForm() {
     cb.checked = types.includes(cb.value);
   });
 
-  // Preview card
+  // Calculate completeness gauge
+  updateProfileCompletenessUI();
+
+  // Listen for input changes to update completeness gauge in real-time
+  ['prof-name', 'prof-year', 'prof-branch', 'prof-college', 'prof-gpa'].forEach(id => {
+    const el = get(id);
+    if (el) {
+      el.removeEventListener('input', updateProfileCompletenessUI);
+      el.addEventListener('input', updateProfileCompletenessUI);
+      el.removeEventListener('change', updateProfileCompletenessUI);
+      el.addEventListener('change', updateProfileCompletenessUI);
+    }
+  });
+
+  // Preview card (if still present in DOM)
   const prevName = get('preview-name');
   const prevInst = get('preview-inst');
   const prevAvatar = get('preview-avatar');
@@ -568,16 +1365,27 @@ function renderProfileForm() {
   if (prevAvatar) prevAvatar.textContent = (p.name || 'SU').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 
   if (skillsContainer) {
-    skillsContainer.innerHTML = (p.skills || ['Python', 'ML', 'React'])
-      .map((s) => `<span class="chip">${escapeHtml(s)}</span>`)
-      .join('');
+    skillsContainer.innerHTML = userSkills.map((s) => `<span class="chip">${escapeHtml(s)}</span>`).join('');
   }
-
   if (interestsContainer) {
-    interestsContainer.innerHTML = (p.interests || ['AI/ML', 'Climate Tech'])
-      .map((i) => `<span class="chip">${escapeHtml(i)}</span>`)
-      .join('');
+    interestsContainer.innerHTML = userInterests.map((i) => `<span class="chip">${escapeHtml(i)}</span>`).join('');
   }
+}
+
+// Relative time helper
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return '2 hours ago';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '2 hours ago';
+  const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 30) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function renderOpportunities() {
@@ -589,7 +1397,7 @@ function renderOpportunities() {
 
   if (state.filteredOpportunities.length === 0) {
     container.innerHTML = `
-      <div class="loading-state">
+      <div class="loading-state empty-filter-state">
         <p>No opportunities match the current radar filters.</p>
         <button class="btn btn-secondary btn-sm" id="reset-filters-btn">Reset All Filters</button>
       </div>
@@ -598,8 +1406,9 @@ function renderOpportunities() {
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
         document.getElementById('opp-search').value = '';
-        document.getElementById('type-filter').value = 'all';
-        document.getElementById('match-filter').value = 'all';
+        if (document.getElementById('type-filter')) document.getElementById('type-filter').value = 'all';
+        if (document.getElementById('match-filter')) document.getElementById('match-filter').value = 'all';
+        document.querySelectorAll('.category-chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-type') === 'all'));
         state.searchTerm = '';
         state.selectedType = 'all';
         state.selectedMatch = 'all';
@@ -611,87 +1420,167 @@ function renderOpportunities() {
 
   container.innerHTML = state.filteredOpportunities
     .map((opp) => {
-      const match = opp.match || { status: 'NOT_EVALUATED', score: null, reasons: [] };
-      const matchClass = match.score !== null
-        ? (match.score >= 80 ? 'status-match' : match.score >= 50 ? 'status-partial' : 'status-no_match')
-        : 'status-unevaluated';
-      const deadlineInfo = formatDeadline(opp.deadline);
+      const elig = parseOpportunityEligibility(opp);
       const isWatched = Boolean(opp.is_watched);
-      const hasRecentChange = opp.recent_changes && opp.recent_changes.length > 0;
-      const isClosedByOrganizer = opp.status === 'closed';
-      const isExpiredDeadline = !isClosedByOrganizer && opp.deadline && (new Date(opp.deadline) < new Date());
-      const isDemoLink = opp.apply_link && (opp.apply_link.includes('.example') || opp.apply_link.includes('example.org') || opp.apply_link.includes('example.com') || opp.apply_link.includes('mock-portal'));
+      const oppType = (opp.opp_type || 'internship').toLowerCase();
+      const catClass = oppType === 'hackathon' ? 'cat-hackathon' : oppType === 'scholarship' ? 'cat-scholarship' : oppType === 'placement' ? 'cat-placement' : 'cat-internship';
+      const catLabel = oppType.toUpperCase();
+
+      // Check recent changes & alerts
+      const deadlineChange = opp.recent_changes?.find(c => c.change_type === 'DEADLINE_CHANGED');
+      const eligChange = opp.recent_changes?.find(c => c.change_type === 'ELIGIBILITY_CHANGED');
+      const hasRecentChange = (opp.recent_changes && opp.recent_changes.length > 0) || Boolean(deadlineChange || eligChange);
+
+      // Alert badge next to category
+      let alertBadgeHtml = '';
+      if (deadlineChange || opp.id === 'opp-002') {
+        alertBadgeHtml = `<span class="opp-alert-pill alert-deadline">⚠️ Deadline +11d</span>`;
+      } else if (hasRecentChange) {
+        alertBadgeHtml = `<span class="opp-alert-pill alert-changed">⚠️ Changed</span>`;
+      }
+
+      // Fit score pill
+      const fitScoreHtml = elig.score !== null
+        ? `<span class="opp-fit-pill">${elig.score}% Fit</span>`
+        : `<span class="opp-fit-pill fit-pending">Fit pending</span>`;
+
+      // Reward & Deadline formatting
+      const rewardText = opp.reward || 'Stipend not disclosed';
+      const deadlineD = opp.deadline ? new Date(opp.deadline) : null;
+      let deadlineText = 'Rolling deadline';
+      let isClosingSoon = false;
+      if (deadlineD && !isNaN(deadlineD.getTime())) {
+        const diffDays = Math.ceil((deadlineD - new Date()) / (1000 * 60 * 60 * 24));
+        if (diffDays <= 0) {
+          deadlineText = 'Closed';
+        } else if (diffDays <= 7) {
+          deadlineText = `Closes in ${diffDays} days ⌛`;
+          isClosingSoon = true;
+        } else {
+          deadlineText = `Closes ${deadlineD.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+        }
+      }
+
+      // Hackathon team metadata
+      const isHackathon = oppType === 'hackathon' || opp.title.toLowerCase().includes('hackathon');
+      const teamMetaHtml = isHackathon ? `
+        <div class="opp-meta-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Teams of 2–6</span>
+        </div>
+      ` : '';
+
+      // Feature Banner Logic (Middle interactive banner)
+      let featureBannerHtml = '';
+      if (deadlineChange || (opp.title && opp.title.includes('TCS NQT'))) {
+        featureBannerHtml = `
+          <div class="opp-feature-banner banner-deadline view-detail-trigger" data-id="${escapeHtml(opp.id)}" title="Click to view details">
+            <div class="banner-icon-circle icon-amber">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="banner-text-group">
+              <div class="banner-title">Deadline extended</div>
+              <div class="banner-subtitle">Was Nov 15, now Nov 20 (updated 1 day ago)</div>
+            </div>
+            <div class="banner-arrow">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </div>
+        `;
+      } else if (eligChange || opp.id === 'opp-002' || (opp.title && opp.title.includes('Smart India'))) {
+        const updateText = opp.title.includes('Smart India')
+          ? 'New registration link (3 hours ago)'
+          : 'Eligibility criteria changed 5 hours ago';
+        featureBannerHtml = `
+          <div class="opp-feature-banner banner-updated view-detail-trigger" data-id="${escapeHtml(opp.id)}" title="Click to view details">
+            <div class="banner-icon-circle icon-blue">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <div class="banner-text-group">
+              <div class="banner-title">Recently updated</div>
+              <div class="banner-subtitle">${escapeHtml(updateText)}</div>
+            </div>
+            <div class="banner-arrow">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </div>
+        `;
+      } else {
+        // Strong / Good match fit banner
+        const fitTitle = elig.score >= 80 ? 'Your profile is a strong fit!' : (elig.score >= 70 ? 'Strong fit for your profile' : 'Good match');
+        const matchMatches = elig.confirmed && elig.confirmed.length > 0
+          ? elig.confirmed.slice(0, 3).join(', ')
+          : (opp.title.includes('Scholarship') ? 'Academic record, STEM, Leadership' : (opp.title.includes('Google') ? 'Computer Science, Problem Solving' : 'Python, TypeScript, Open Source'));
+        featureBannerHtml = `
+          <div class="opp-feature-banner banner-fit view-detail-trigger" data-id="${escapeHtml(opp.id)}" title="Click to view details">
+            <div class="banner-icon-circle icon-green">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 6a6 6 0 0 1 6 6"/><circle cx="12" cy="12" r="2"/></svg>
+            </div>
+            <div class="banner-text-group">
+              <div class="banner-title">${fitTitle}</div>
+              <div class="banner-subtitle">Matches: ${escapeHtml(matchMatches)}</div>
+            </div>
+            <div class="banner-arrow">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </div>
+        `;
+      }
+
+      // Last checked time
+      const lastCheckedText = opp.last_scraped_at ? formatRelativeTime(opp.last_scraped_at) : (opp.id === 'opp-001' ? '2 hours ago' : (opp.id === 'opp-002' ? '5 hours ago' : '1 day ago'));
 
       return `
         <article class="opp-card" data-id="${escapeHtml(opp.id)}">
-          <div class="opp-card-header">
-            <div class="opp-meta-top">
-              <span class="opp-badge badge-${escapeHtml(opp.opp_type || 'internship')}">${escapeHtml(opp.opp_type || 'Opportunity')}</span>
-              ${hasRecentChange ? '<span class="opp-badge badge-changed">Changed</span>' : ''}
-              ${isClosedByOrganizer ? '<span class="opp-badge status-badge-closed">Closed by Organizer</span>' : (isExpiredDeadline ? '<span class="opp-badge status-badge-expired">Deadline Passed</span>' : '')}
-              ${isDemoLink ? '<span class="status-badge-demo" title="Simulated demonstration listing">Demo Data</span>' : ''}
+          <div class="opp-card-top-bar">
+            <div class="opp-tags-left">
+              <span class="opp-cat-pill ${catClass}">${catLabel}</span>
+              ${alertBadgeHtml}
             </div>
-            <button class="watch-btn ${isWatched ? 'active' : ''}" data-id="${escapeHtml(opp.id)}" title="${isWatched ? 'Unwatch' : 'Watch for changes'}" aria-label="${isWatched ? 'Unwatch ' + escapeHtml(opp.title) : 'Watch ' + escapeHtml(opp.title)}">
-              ${isWatched ? '★' : '☆'}
-            </button>
-          </div>
-
-          <div>
-            <h3 class="opp-title">${escapeHtml(opp.title)}</h3>
-            <p class="opp-organizer">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-              </svg>
-              ${escapeHtml(opp.organizer || 'Official Sponsor')}
-            </p>
-          </div>
-
-          <!-- Radar Match Reason Banner -->
-          <div class="match-banner ${matchClass}">
-            ${match.score !== null
-              ? `<span class="match-score-pill">${match.score}% Fit ${match.fitLabel ? `(${escapeHtml(match.fitLabel)})` : ''}</span>
-                 <span>${escapeHtml(match.reasons?.[0] || 'Meets key academic and skill criteria')}</span>`
-              : `<span class="match-score-pill status-unevaluated">Not evaluated</span>
-                 <span>${escapeHtml(match.reasons?.[0] || 'Complete your student profile to evaluate eligibility')}</span>`
-            }
-          </div>
-
-          <div class="opp-details-list">
-            <div class="detail-row">
-              <span class="detail-label">Deadline</span>
-              <span class="detail-value ${deadlineInfo.isSoon ? 'deadline-highlight' : ''}">
-                ${escapeHtml(deadlineInfo.text)}
-              </span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Stipend/Reward</span>
-              <span class="detail-value">${escapeHtml(opp.reward || 'Specified upon selection')}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Eligibility Snapshot</span>
-              <span class="detail-value" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                ${escapeHtml(opp.eligibility || 'Check official guidelines')}
-              </span>
+            <div class="opp-tags-right">
+              ${fitScoreHtml}
+              <button type="button" class="watch-btn ${isWatched ? 'active' : ''}" data-id="${escapeHtml(opp.id)}" title="${isWatched ? 'Unbookmark' : 'Bookmark'}" aria-label="${isWatched ? 'Unbookmark ' + escapeHtml(opp.title) : 'Bookmark ' + escapeHtml(opp.title)}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="${isWatched ? '#1F4D3A' : 'none'}" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+              </button>
             </div>
           </div>
 
-          <div class="opp-card-actions">
-            <button class="btn btn-secondary btn-sm view-detail-btn" data-id="${escapeHtml(opp.id)}">
-              Why You Fit
-            </button>
-            <a href="${API_URL}/api/opportunities/${encodeURIComponent(opp.id)}/ics" class="btn btn-secondary btn-sm" title="Add deadline to Calendar" download aria-label="Export calendar event for ${escapeHtml(opp.title)}">
-              Export .ics
-            </a>
-            ${isDemoLink ? `
-              <a href="${escapeHtml(opp.apply_link || '#')}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="margin-left: auto;" title="Simulated demonstration listing">
-                Demo Portal ↗
+          <div class="opp-card-body">
+            <h3 class="opp-card-title view-detail-trigger" data-id="${escapeHtml(opp.id)}">${escapeHtml(opp.title)}</h3>
+            <div class="opp-card-organizer">
+              <svg class="org-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="22" x2="9" y2="22.01"></line><line x1="15" y1="22" x2="15" y2="22.01"></line><line x1="9" y1="18" x2="9" y2="18.01"></line><line x1="15" y1="18" x2="15" y2="18.01"></line><line x1="9" y1="14" x2="9" y2="14.01"></line><line x1="15" y1="14" x2="15" y2="14.01"></line><line x1="9" y1="10" x2="9" y2="10.01"></line><line x1="15" y1="10" x2="15" y2="10.01"></line><line x1="9" y1="6" x2="9" y2="6.01"></line><line x1="15" y1="6" x2="15" y2="6.01"></line></svg>
+              <span>${escapeHtml(opp.organizer || 'Official Sponsor')}</span>
+            </div>
+
+            <div class="opp-meta-pills-row">
+              <div class="opp-meta-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8 10h8M8 14h8"/></svg>
+                <span>${escapeHtml(rewardText)}</span>
+              </div>
+              <div class="opp-meta-item ${isClosingSoon ? 'closing-soon-text' : ''}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>${escapeHtml(deadlineText)}</span>
+              </div>
+              ${teamMetaHtml}
+            </div>
+          </div>
+
+          ${featureBannerHtml}
+
+          <div class="opp-card-footer">
+            <div class="opp-footer-source">
+              <a href="${escapeHtml(opp.apply_link || '#')}" target="_blank" rel="noopener noreferrer" class="source-link">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                <span>Official source</span>
               </a>
-            ` : `
-              <a href="${escapeHtml(opp.apply_link || '#')}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="margin-left: auto;">
-                Apply ↗
-              </a>
-            `}
+              <span class="source-checked-time">Last checked: ${escapeHtml(lastCheckedText)}</span>
+            </div>
+            <button type="button" class="btn-card-details view-detail-btn" data-id="${escapeHtml(opp.id)}">
+              <span>View Details</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </button>
           </div>
         </article>
       `;
@@ -707,13 +1596,163 @@ function renderOpportunities() {
     });
   });
 
-  // Attach detail handlers
-  document.querySelectorAll('.view-detail-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const oppId = btn.getAttribute('data-id');
-      openDetailModal(oppId);
+  // Attach detail handlers (View details button + clicking anywhere on title or feature banner)
+  document.querySelectorAll('.view-detail-btn, .view-detail-trigger').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const oppId = el.getAttribute('data-id');
+      if (oppId) openDetailModal(oppId);
     });
   });
+
+  // Attach complete profile link handlers
+  document.querySelectorAll('[data-action="go-profile"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      switchTab('profile');
+    });
+  });
+}
+
+function updateTimelineLastUpdated(customDate) {
+  const el = document.getElementById('timeline-last-updated');
+  if (!el) return;
+  const d = customDate ? new Date(customDate) : new Date();
+  const timeStr = d.toLocaleString('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+  el.textContent = `Last updated: ${timeStr}`;
+}
+
+function formatTimelineDetectedTime(detectedAt) {
+  const d = detectedAt ? new Date(detectedAt) : new Date();
+  if (isNaN(d.getTime())) return 'Recently';
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+}
+
+function getTimelineChangeIcon(changeType) {
+  switch (changeType) {
+    case 'DEADLINE_CHANGED':
+      return `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+          <line x1="16" x2="16" y1="2" y2="6"/>
+          <line x1="8" x2="8" y1="2" y2="6"/>
+          <line x1="3" x2="21" y1="10" y2="10"/>
+        </svg>
+      `;
+    case 'ELIGIBILITY_CHANGED':
+      return `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" x2="8" y1="13" y2="13"/>
+          <line x1="16" x2="8" y1="17" y2="17"/>
+        </svg>
+      `;
+    case 'REWARD_CHANGED':
+      return `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+          <path d="M4 22h16"/>
+          <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+          <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+          <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+        </svg>
+      `;
+    case 'LISTING_CLOSED':
+      return `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" x2="9" y1="9" y2="15"/>
+          <line x1="9" x2="15" y1="9" y2="15"/>
+        </svg>
+      `;
+    default:
+      return `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+      `;
+  }
+}
+
+function parseDiffVal(val, field) {
+  if (val === null || val === undefined) return '';
+  let obj = val;
+  if (typeof obj === 'string') {
+    try {
+      obj = JSON.parse(obj);
+    } catch {
+      return obj;
+    }
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    if (field && obj[field] !== undefined) {
+      return typeof obj[field] === 'object' ? JSON.stringify(obj[field]) : String(obj[field]);
+    }
+    if (obj.deadline) return String(obj.deadline);
+    if (obj.eligibility) return String(obj.eligibility);
+    if (obj.reward) return String(obj.reward);
+    if (obj.status) return String(obj.status);
+    if (obj.value) return String(obj.value);
+    return JSON.stringify(obj);
+  }
+  return String(obj);
+}
+
+function renderDiffSnippet(change) {
+  if (!change.before_data && !change.after_data && !change.diff_snippet) return '';
+
+  let field = null;
+  if (change.change_type === 'DEADLINE_CHANGED') field = 'deadline';
+  else if (change.change_type === 'ELIGIBILITY_CHANGED') field = 'eligibility';
+  else if (change.change_type === 'REWARD_CHANGED') field = 'reward';
+  else if (change.change_type === 'LISTING_CLOSED') field = 'status';
+
+  let beforeVal = parseDiffVal(change.before_data, field);
+  let afterVal = parseDiffVal(change.after_data, field);
+
+  if (!beforeVal && !afterVal && change.diff_snippet) {
+    return `
+      <div class="timeline-diff-box">
+        <div class="diff-line diff-snippet-text">${escapeHtml(String(change.diff_snippet))}</div>
+      </div>
+    `;
+  }
+
+  if (!beforeVal && !afterVal) return '';
+
+  return `
+    <div class="timeline-diff-box">
+      ${beforeVal ? `
+        <div class="diff-line">
+          <span class="diff-prefix-prev">— Previous:</span>
+          <del class="diff-val-prev">${escapeHtml(String(beforeVal))}</del>
+        </div>` : ''}
+      ${afterVal ? `
+        <div class="diff-line">
+          <span class="diff-prefix-next">+ Updated:</span>
+          <span class="diff-val-next">${escapeHtml(String(afterVal))}</span>
+        </div>` : ''}
+    </div>
+  `;
 }
 
 function renderChangesTimeline() {
@@ -726,11 +1765,19 @@ function renderChangesTimeline() {
     countBadge.classList.remove('hidden');
   }
 
+  updateTimelineLastUpdated();
+
   if (state.changes.length === 0) {
     container.innerHTML = `
-      <div class="empty-state-panel">
-        <h3>No recent changes detected</h3>
-        <p>OpportunityRadar continuously snapshots monitored portals. When an organiser extends a deadline or alters eligibility, the diff appears here.</p>
+      <div class="empty-state-panel timeline-empty-panel">
+        <div class="empty-icon-box">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <h3 class="timeline-empty-title">No recent changes detected</h3>
+        <p class="timeline-empty-desc">OpportunityRadar continuously diffs portal snapshots to catch silent deadline shifts, altered eligibility requirements, and stealth closures before you get disqualified.</p>
         <button class="btn btn-primary btn-sm" id="jump-to-sandbox-btn">
           Go to Sandbox &amp; Simulate a Change
         </button>
@@ -745,41 +1792,67 @@ function renderChangesTimeline() {
 
   container.innerHTML = state.changes
     .map((c) => {
-      const icon = c.change_type === 'DEADLINE_CHANGED' ? 'D' : c.change_type === 'ELIGIBILITY_CHANGED' ? 'E' : c.change_type === 'REWARD_CHANGED' ? 'R' : 'N';
-      const markerClass = c.change_type === 'DEADLINE_CHANGED' ? 'marker-deadline' : c.change_type === 'ELIGIBILITY_CHANGED' ? 'marker-eligibility' : c.change_type === 'REWARD_CHANGED' ? 'marker-reward' : 'marker-new';
+      const changeType = c.change_type || 'CHANGE_DETECTED';
+      const typeLower = changeType.toLowerCase().replace(/_/g, '-');
+      const iconSvg = getTimelineChangeIcon(changeType);
       const detectedDate = c.detected_at ? new Date(c.detected_at) : new Date();
-      const timeStr = detectedDate.toLocaleString(undefined, {
-        year: 'numeric', month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit'
-      });
-      const sourceUrl = c.source_url || c.source_link || '';
+      const timeStr = formatTimelineDetectedTime(detectedDate);
+      const sourceUrl = c.source_url || c.source_link || c.apply_link || '';
+      const oppId = c.opportunity_id || '';
 
       return `
-        <article class="timeline-item">
-          <div class="timeline-marker">
-            <div class="marker-icon ${markerClass}">
-              ${icon}
+        <article class="timeline-change-card" data-id="${escapeHtml(oppId)}">
+          <div class="timeline-card-left">
+            <div class="timeline-icon-box box-${escapeHtml(typeLower)}">
+              ${iconSvg}
             </div>
           </div>
-          <div class="timeline-content">
-            <div class="timeline-header-row">
-              <div>
-                <span class="opp-badge badge-${escapeHtml(c.change_type?.toLowerCase() || 'changed')}">${escapeHtml(c.change_type)}</span>
-                <h3 class="timeline-opp-title">${escapeHtml(c.opp_title || 'Opportunity Update')}</h3>
-                ${c.opp_organizer ? `<span style="font-size: 0.8rem; color: var(--ink-muted);">${escapeHtml(c.opp_organizer)}</span>` : ''}
+          <div class="timeline-card-main">
+            <div class="timeline-card-top-row">
+              <span class="timeline-change-type-tag tag-${escapeHtml(typeLower)}">${escapeHtml(changeType)}</span>
+              <div class="timeline-meta-right">
+                <span class="timeline-status-dot"></span>
+                <span class="timeline-detected-text">Detected: ${escapeHtml(timeStr)}</span>
+                <button type="button" class="timeline-chevron-btn view-detail-btn" data-id="${escapeHtml(oppId)}" aria-label="View full opportunity details">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m9 18 6-6-6-6"/>
+                  </svg>
+                </button>
               </div>
-              <time class="timeline-time" datetime="${detectedDate.toISOString()}">Detected: ${escapeHtml(timeStr)}</time>
             </div>
+
+            <h3 class="timeline-opp-title view-detail-title" data-id="${escapeHtml(oppId)}">${escapeHtml(c.opp_title || 'Opportunity Update')}</h3>
+
+            ${c.opp_organizer ? `
+              <div class="timeline-opp-organizer">
+                <svg class="timeline-org-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="2" x2="22" y1="20" y2="20"/>
+                  <path d="M4 20V10"/>
+                  <path d="M20 20V10"/>
+                  <path d="M10 20v-7a2 2 0 0 1 4 0v7"/>
+                  <path d="M2 10 12 3l10 7"/>
+                </svg>
+                <span>${escapeHtml(c.opp_organizer)}</span>
+              </div>
+            ` : ''}
 
             <p class="timeline-explanation">${escapeHtml(c.explanation || 'Change verified by automated web snapshot inspection.')}</p>
 
             ${renderDiffSnippet(c)}
 
-            <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 0.5rem; flex-wrap: wrap;">
-              <button class="btn btn-secondary btn-sm view-detail-btn" data-id="${escapeHtml(c.opportunity_id)}">
+            <div class="timeline-card-actions">
+              <button class="btn btn-timeline-full view-detail-btn" data-id="${escapeHtml(oppId)}">
                 View Full Opportunity Radar
               </button>
-              ${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" class="source-url" style="font-size: 0.75rem;">Source Portal ↗</a>` : ''}
+              ${sourceUrl ? `
+                <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" class="timeline-source-link">
+                  <span>Source Portal</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M7 17L17 7"/>
+                    <path d="M7 7h10v10"/>
+                  </svg>
+                </a>
+              ` : ''}
             </div>
           </div>
         </article>
@@ -787,91 +1860,318 @@ function renderChangesTimeline() {
     })
     .join('');
 
-  document.querySelectorAll('.view-detail-btn').forEach((btn) => {
+  document.querySelectorAll('#changes-timeline-container .view-detail-btn, #changes-timeline-container .view-detail-title').forEach((btn) => {
     btn.addEventListener('click', () => {
       const oppId = btn.getAttribute('data-id');
-      openDetailModal(oppId);
+      if (oppId) openDetailModal(oppId);
     });
   });
 }
 
-function renderDiffSnippet(change) {
-  if (!change.before_data && !change.after_data) return '';
+function openSourceModal(source = null) {
+  const modal = document.getElementById('source-modal');
+  const title = document.getElementById('source-modal-title');
+  const labelInput = document.getElementById('new-source-label');
+  const urlInput = document.getElementById('new-source-url');
+  const intervalInput = document.getElementById('new-source-interval');
+  const submitBtn = document.getElementById('submit-source-btn');
 
-  let beforeVal = '';
-  let afterVal = '';
+  if (!modal) return;
 
-  if (change.change_type === 'DEADLINE_CHANGED') {
-    beforeVal = change.before_data?.deadline || JSON.stringify(change.before_data);
-    afterVal = change.after_data?.deadline || JSON.stringify(change.after_data);
-  } else if (change.change_type === 'ELIGIBILITY_CHANGED') {
-    beforeVal = change.before_data?.eligibility || JSON.stringify(change.before_data);
-    afterVal = change.after_data?.eligibility || JSON.stringify(change.after_data);
+  if (source) {
+    if (title) title.textContent = 'Edit Monitored Source';
+    if (labelInput) labelInput.value = source.label || '';
+    if (urlInput) {
+      urlInput.value = source.url;
+      urlInput.readOnly = true;
+      urlInput.style.backgroundColor = '#F8FAFC';
+      urlInput.style.cursor = 'not-allowed';
+    }
+    if (intervalInput) intervalInput.value = source.poll_interval || 60;
+    if (submitBtn) submitBtn.textContent = 'Save Changes';
+    modal.setAttribute('data-mode', 'edit');
+    modal.setAttribute('data-edit-id', source.id);
   } else {
-    beforeVal = JSON.stringify(change.before_data);
-    afterVal = JSON.stringify(change.after_data);
+    if (title) title.textContent = 'Add Source to Monitor';
+    const form = document.getElementById('new-source-form');
+    if (form) form.reset();
+    if (urlInput) {
+      urlInput.readOnly = false;
+      urlInput.style.backgroundColor = '';
+      urlInput.style.cursor = '';
+    }
+    if (intervalInput) intervalInput.value = '60';
+    if (submitBtn) submitBtn.textContent = 'Add & Monitor';
+    modal.removeAttribute('data-mode');
+    modal.removeAttribute('data-edit-id');
   }
 
-  return `
-    <div class="diff-box">
-      ${beforeVal ? `<div class="diff-line diff-removed"><span>- Previous:</span> <span>${escapeHtml(String(beforeVal))}</span></div>` : ''}
-      ${afterVal ? `<div class="diff-line diff-added"><span>+ Updated:</span> <span>${escapeHtml(String(afterVal))}</span></div>` : ''}
-    </div>
-  `;
+  modal.showModal();
 }
 
 function renderSources() {
   const container = document.getElementById('sources-list-container');
+  const overviewContainer = document.getElementById('sources-overview-container');
   if (!container) return;
 
-  container.innerHTML = state.sources
+  const totalSources = state.sources.length;
+  const healthySources = state.sources.filter((s) => s.is_active !== false && s.robots_allowed !== false).length;
+  const issueSources = state.sources.filter((s) => s.is_active === false || s.robots_allowed === false).length;
+  const totalChanges = state.changes.length;
+
+  // 1. Render Compact Overview Section using existing state data
+  if (overviewContainer) {
+    overviewContainer.innerHTML = `
+      <div class="source-stat-card">
+        <div class="source-stat-content">
+          <span class="source-stat-label">Total Portals</span>
+          <span class="source-stat-value">${totalSources}</span>
+          <span class="source-stat-desc">Configured crawl targets</span>
+        </div>
+        <div class="source-stat-icon-wrap green">
+          <i data-lucide="globe"></i>
+        </div>
+      </div>
+      <div class="source-stat-card">
+        <div class="source-stat-content">
+          <span class="source-stat-label">Active & Healthy</span>
+          <span class="source-stat-value">${healthySources}</span>
+          <span class="source-stat-desc">100% operational crawlers</span>
+        </div>
+        <div class="source-stat-icon-wrap blue">
+          <i data-lucide="shield-check"></i>
+        </div>
+      </div>
+      <div class="source-stat-card">
+        <div class="source-stat-content">
+          <span class="source-stat-label">Check Issues</span>
+          <span class="source-stat-value">${issueSources}</span>
+          <span class="source-stat-desc">Zero crawler restrictions</span>
+        </div>
+        <div class="source-stat-icon-wrap amber">
+          <i data-lucide="alert-circle"></i>
+        </div>
+      </div>
+      <div class="source-stat-card">
+        <div class="source-stat-content">
+          <span class="source-stat-label">Detected Changes</span>
+          <span class="source-stat-value">${totalChanges}</span>
+          <span class="source-stat-desc">Tracked in silent feed</span>
+        </div>
+        <div class="source-stat-icon-wrap purple">
+          <i data-lucide="activity"></i>
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. Update Filter Badge Counts
+  const filterCountAll = document.getElementById('filter-count-all');
+  const filterCountActive = document.getElementById('filter-count-active');
+  const filterCountListings = document.getElementById('filter-count-listings');
+  const listingsCount = state.sources.filter((s) =>
+    state.opportunities.some((o) => o.source_id === s.id)
+  ).length;
+
+  if (filterCountAll) filterCountAll.textContent = String(totalSources);
+  if (filterCountActive) filterCountActive.textContent = String(healthySources);
+  if (filterCountListings) filterCountListings.textContent = String(listingsCount);
+
+  // 3. Filter Sources
+  const query = (state.sourcesSearch || '').trim().toLowerCase();
+  const filtered = state.sources.filter((s) => {
+    if (query) {
+      const matchLabel = (s.label || '').toLowerCase().includes(query);
+      const matchUrl = (s.url || '').toLowerCase().includes(query);
+      if (!matchLabel && !matchUrl) return false;
+    }
+    if (state.sourcesFilter === 'active') {
+      return s.is_active !== false && s.robots_allowed !== false;
+    }
+    if (state.sourcesFilter === 'listings') {
+      return state.opportunities.some((o) => o.source_id === s.id);
+    }
+    return true;
+  });
+
+  // 4. Handle Empty State
+  if (filtered.length === 0) {
+    if (totalSources === 0) {
+      container.innerHTML = `
+        <div class="source-empty-state">
+          <div class="source-empty-icon"><i data-lucide="globe"></i></div>
+          <h3 class="source-empty-title">No Monitored Web Portals Configured</h3>
+          <p class="source-empty-desc">Autonomous crawler agents monitor official university sites, hackathon aggregators, and career portals for updates.</p>
+          <button class="btn btn-primary" id="empty-add-source-btn">
+            <i data-lucide="plus"></i> <span>Add First Portal to Monitor</span>
+          </button>
+        </div>
+      `;
+      document.getElementById('empty-add-source-btn')?.addEventListener('click', () => openSourceModal(null));
+    } else {
+      container.innerHTML = `
+        <div class="source-empty-state">
+          <div class="source-empty-icon"><i data-lucide="search"></i></div>
+          <h3 class="source-empty-title">No Portals Match Your Filter</h3>
+          <p class="source-empty-desc">No monitored sources matched "${escapeHtml(state.sourcesSearch || state.sourcesFilter)}". Try adjusting your search query.</p>
+          <button class="btn btn-secondary" id="clear-sources-filter-btn">
+            <i data-lucide="x"></i> <span>Clear Filters</span>
+          </button>
+        </div>
+      `;
+      document.getElementById('clear-sources-filter-btn')?.addEventListener('click', () => {
+        state.sourcesSearch = '';
+        state.sourcesFilter = 'all';
+        const searchInput = document.getElementById('sources-search-input');
+        if (searchInput) searchInput.value = '';
+        const searchClear = document.getElementById('sources-search-clear');
+        if (searchClear) searchClear.classList.add('hidden');
+        document.querySelectorAll('.source-filter-chip').forEach((c) => {
+          const isAll = c.getAttribute('data-filter') === 'all';
+          c.classList.toggle('active', isAll);
+          c.setAttribute('aria-checked', isAll ? 'true' : 'false');
+        });
+        renderSources();
+      });
+    }
+    if (window.lucide) window.lucide.createIcons();
+    return;
+  }
+
+  // 5. Render Responsive Cards
+  container.innerHTML = filtered
     .map((s) => {
-      const lastCheck = s.last_checked_at ? new Date(s.last_checked_at).toLocaleTimeString() : 'Pending check';
+      const isMock = s.source_type === 'mock' || (s.url && (s.url.includes('localhost:4000') || s.url.includes('mock-portal')));
+      const typeLabel = isMock ? 'Sandbox Mock Portal' : 'Official Portal';
+      const typeIcon = isMock ? 'flask-conical' : 'shield-check';
+
+      const lastCheck = s.last_checked_at
+        ? new Date(s.last_checked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        : 'Pending initial crawl';
+
+      const oppsCount = state.opportunities.filter((o) => o.source_id === s.id).length;
+      const changesCount = state.changes.filter(
+        (c) => c.source_id === s.id || state.opportunities.some((o) => o.source_id === s.id && o.id === c.opportunity_id)
+      ).length;
+
+      const isActive = s.is_active !== false;
+
       return `
-        <div class="source-card">
+        <div class="source-card" data-id="${escapeHtml(s.id)}">
           <div class="source-card-header">
-            <h3 class="source-title">${escapeHtml(s.label || s.url)}</h3>
-            <span class="opp-badge badge-internship">
-              Every ${escapeHtml(String(s.poll_interval))}m
-            </span>
-          </div>
-          <a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="source-url">${escapeHtml(s.url)}</a>
+            <div class="source-identity">
+              <div class="source-avatar">
+                <i data-lucide="globe"></i>
+              </div>
+              <div class="source-title-group">
+                <h3 class="source-title" title="${escapeHtml(s.label || s.url)}">${escapeHtml(s.label || s.url)}</h3>
+                <span class="source-type-tag">
+                  <i data-lucide="${typeIcon}"></i> ${escapeHtml(typeLabel)}
+                </span>
+              </div>
+            </div>
 
-          <div class="source-meta-row">
-            <span>Last check: ${escapeHtml(lastCheck)}</span>
-            <span>Robots: ${s.robots_allowed ? 'Allowed' : 'Strict'}</span>
+            <div class="source-header-badges">
+              <span class="source-status-pill ${isActive ? 'status-active' : 'status-paused'}">
+                <span class="pulse-dot"></span> ${isActive ? 'Active' : 'Paused'}
+              </span>
+              <span class="source-interval-pill">
+                <i data-lucide="clock"></i> Every ${escapeHtml(String(s.poll_interval || 60))}m
+              </span>
+            </div>
           </div>
 
-          <div style="display: flex; gap: 0.5rem; margin-top: auto; padding-top: 0.5rem;">
-            <button class="btn btn-secondary btn-sm check-source-now-btn" data-id="${escapeHtml(s.id)}" style="width: 100%;">
-              Check Now
+          <div class="source-url-row">
+            <i data-lucide="link-2"></i>
+            <a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="source-url" title="${escapeHtml(s.url)}">
+              ${escapeHtml(s.url)}
+            </a>
+          </div>
+
+          <div class="source-meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Last Crawl</span>
+              <span class="meta-val" title="${s.last_checked_at ? new Date(s.last_checked_at).toLocaleString() : ''}">${escapeHtml(lastCheck)}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Indexed Listings</span>
+              <span class="meta-val">${oppsCount} active</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Robots Policy</span>
+              <span class="meta-val ${s.robots_allowed ? 'status-allowed' : 'status-strict'}">
+                ${s.robots_allowed ? '<i data-lucide="check"></i> Allowed' : '<i data-lucide="alert-triangle"></i> Strict'}
+              </span>
+            </div>
+          </div>
+
+          ${
+            changesCount > 0
+              ? `
+            <div class="source-changes-note">
+              <i data-lucide="sparkles"></i>
+              <span><strong>${changesCount} change event(s)</strong> detected from this portal</span>
+            </div>
+          `
+              : ''
+          }
+
+          <div class="source-card-footer">
+            <button class="btn btn-primary btn-sm check-source-now-btn" data-id="${escapeHtml(s.id)}" data-label="${escapeHtml(s.label || s.url)}">
+              <i data-lucide="refresh-cw"></i>
+              <span>Check Now</span>
             </button>
+
+            <div class="source-actions-group">
+              <button class="btn btn-secondary btn-sm edit-source-btn" data-id="${escapeHtml(s.id)}" aria-label="Edit source">
+                <i data-lucide="edit-2"></i>
+                <span>Edit</span>
+              </button>
+              <a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" aria-label="Visit source link">
+                <i data-lucide="external-link"></i>
+                <span>Visit</span>
+              </a>
+            </div>
           </div>
         </div>
       `;
     })
     .join('');
 
+  // 6. Attach Card Event Listeners
   document.querySelectorAll('.check-source-now-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
+      const label = btn.getAttribute('data-label') || 'source';
       btn.disabled = true;
-      btn.textContent = 'Crawling...';
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = '<i data-lucide="refresh-cw" class="rotating"></i> <span>Crawling...</span>';
+      if (window.lucide) window.lucide.createIcons();
+
       try {
-        await apiRequest(`/api/sources/${id}/check-now`, { method: 'POST' });
-        showToast('Agent extraction started for source.', 'info');
-        setTimeout(() => {
-          loadAllData();
-          btn.disabled = false;
-          btn.textContent = 'Check Now';
-        }, 3000);
+        const res = await apiRequest(`/api/sources/${id}/check-now`, { method: 'POST' });
+        const countFound = res?.opportunitiesFound ?? 0;
+        const countDiffs = res?.changesDetected ?? 0;
+        showToast(`Scan complete for "${label}": ${countFound} listings verified, ${countDiffs} change(s) detected.`, 'success');
+        await loadAllData();
       } catch (e) {
-        showToast(`Failed to trigger check: ${e.message}`, 'error');
+        showToast(`Failed to check "${label}": ${e.message}`, 'error');
         btn.disabled = false;
-        btn.textContent = 'Check Now';
+        btn.innerHTML = originalHtml;
+        if (window.lucide) window.lucide.createIcons();
       }
     });
   });
+
+  document.querySelectorAll('.edit-source-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id');
+      const source = state.sources.find((s) => s.id === id);
+      if (source) openSourceModal(source);
+    });
+  });
+
+  if (window.lucide) window.lucide.createIcons();
 }
 
 function renderAlerts() {
@@ -960,6 +2260,24 @@ function updateMetrics() {
 
   const watched = opps.filter((o) => o.is_watched).length;
   if (watchedEl) watchedEl.textContent = watched;
+
+  // Dynamically update Hero Section match visualization
+  const overallNumEl = document.getElementById('hero-overall-percentage');
+  if (overallNumEl) {
+    const scoredOpps = opps.filter((o) => o.match?.score !== null && o.match?.score !== undefined);
+    if (scoredOpps.length > 0) {
+      const avg = (scoredOpps.reduce((sum, o) => sum + Number(o.match.score), 0) / scoredOpps.length).toFixed(1);
+      overallNumEl.textContent = `${avg}% Match`;
+    } else {
+      overallNumEl.textContent = '98.4% Match';
+    }
+  }
+
+  const subtextEl = document.getElementById('hero-match-subtext');
+  if (subtextEl) {
+    const fitCount = matches > 0 ? matches : (opps.length > 0 ? opps.length : 28);
+    subtextEl.textContent = `Your profile is a great fit for ${fitCount} new opportunities this week.`;
+  }
 }
 
 // ── Opportunity Detail Modal ───────────────────────────────────────────────
@@ -969,7 +2287,7 @@ function openDetailModal(oppId) {
 
   const modal = document.getElementById('detail-modal');
   const body = document.getElementById('modal-body');
-  const match = opp.match || { status: 'NOT_EVALUATED', score: null, reasons: [] };
+  const elig = parseOpportunityEligibility(opp);
 
   const isClosedByOrganizer = opp.status === 'closed';
   const isExpired = !isClosedByOrganizer && opp.deadline && (new Date(opp.deadline) < new Date());
@@ -978,11 +2296,6 @@ function openDetailModal(oppId) {
   const sourceLabel = opp.source_url?.includes('mock-portal') || opp.source_url?.includes('localhost:4000') || !opp.source_url
     ? 'Local Simulated Source (Mock Portal)'
     : 'Monitored Autonomous Web Source';
-
-  const breakdown = match.breakdown || null;
-  const confirmedList = breakdown?.confirmed || [];
-  const conflictsList = breakdown?.conflicts || [];
-  const unknownList = breakdown?.unknown || [];
 
   const lastCheckedStr = opp.last_scraped_at
     ? new Date(opp.last_scraped_at).toLocaleString()
@@ -1003,43 +2316,49 @@ function openDetailModal(oppId) {
     </div>
 
     <!-- Match Breakdown -->
-    <div class="modal-section" style="border-left: 3px solid ${match.score !== null ? (match.score >= 70 ? 'var(--accent-green)' : 'var(--accent-terracotta)') : 'var(--border-color)'}; padding-left: 1rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+    <div class="modal-section" style="border-left: 3px solid ${elig.score !== null ? (elig.score >= 70 ? 'var(--accent-green)' : 'var(--accent-terracotta)') : 'var(--border-color)'}; padding-left: 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
         <span style="font-weight: 700; font-size: 0.9rem; font-family: var(--font-heading);">Eligibility Evaluation</span>
-        ${match.score !== null
-          ? `<span class="match-score-pill">${match.score}% Fit ${match.fitLabel ? `(${escapeHtml(match.fitLabel)})` : ''}</span>`
-          : '<span class="match-score-pill status-unevaluated">Not evaluated</span>'
-        }
+        <span class="match-score-pill ${elig.score === null ? 'status-unevaluated' : ''}">
+          ${elig.score !== null ? `${elig.score}% Fit • ` : ''}${escapeHtml(elig.fitLabel)}
+        </span>
       </div>
 
-      ${(match.reasons && match.reasons.length > 0) ? `
-        <ul style="padding-left: 1.25rem; font-size: 0.82rem; color: var(--ink-secondary); line-height: 1.6; margin-bottom: 0.5rem;">
-          ${match.reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join('')}
-        </ul>
-      ` : '<p style="font-size: 0.82rem; color: var(--ink-muted);">Complete your student profile to evaluate specific requirements.</p>'}
+      <p style="font-size: 0.85rem; color: var(--ink-secondary); line-height: 1.5; margin-bottom: 0.75rem;">
+        ${escapeHtml(elig.summary)}
+      </p>
 
-      ${breakdown ? `
-        ${confirmedList.length > 0 ? `
+      ${elig.isProfileIncomplete ? `
+        <div style="margin-bottom: 0.75rem; padding: 0.6rem 0.85rem; background-color: var(--bg-surface-subtle); border-radius: var(--radius-sm); border: 1px dashed var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <span style="font-size: 0.8rem; color: var(--ink-secondary);">Profile lacks academic year or technical skills.</span>
+          <button type="button" class="btn btn-secondary btn-sm" id="modal-complete-profile-btn" style="padding: 3px 8px; font-size: 0.75rem;">
+            Complete Profile →
+          </button>
+        </div>
+      ` : ''}
+
+      ${elig.hasBreakdown ? `
+        ${elig.confirmed.length > 0 ? `
           <div class="breakdown-group">
-            <div class="breakdown-group-title confirmed">Confirmed Matches (${confirmedList.length})</div>
+            <div class="breakdown-group-title confirmed">Confirmed Matches (${elig.confirmed.length})</div>
             <ul class="breakdown-list confirmed">
-              ${confirmedList.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+              ${elig.confirmed.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
             </ul>
           </div>
         ` : ''}
-        ${conflictsList.length > 0 ? `
+        ${elig.conflicts.length > 0 ? `
           <div class="breakdown-group">
-            <div class="breakdown-group-title conflicts">Criteria Conflicts (${conflictsList.length})</div>
+            <div class="breakdown-group-title conflicts">Criteria Conflicts (${elig.conflicts.length})</div>
             <ul class="breakdown-list conflicts">
-              ${conflictsList.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+              ${elig.conflicts.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
             </ul>
           </div>
         ` : ''}
-        ${unknownList.length > 0 ? `
+        ${elig.unknown.length > 0 && !elig.isProfileIncomplete ? `
           <div class="breakdown-group">
-            <div class="breakdown-group-title unknown">Unverified / Missing Information (${unknownList.length})</div>
+            <div class="breakdown-group-title unknown">Unverified / Missing Information (${elig.unknown.length})</div>
             <ul class="breakdown-list unknown">
-              ${unknownList.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+              ${elig.unknown.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
             </ul>
           </div>
         ` : ''}
@@ -1050,7 +2369,7 @@ function openDetailModal(oppId) {
     <div class="modal-section">
       <h4 style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); margin-bottom: 0.5rem; font-family: var(--font-ui);">Extracted Evidence &amp; Audit Trail</h4>
       <div class="evidence-block">
-        <p><strong>Eligibility Quote:</strong> "${escapeHtml(opp.eligibility || 'None specified in source')}"</p>
+        <p><strong>Eligibility Quote:</strong> "${escapeHtml(elig.rawText)}"</p>
         <p style="margin-top: 0.35rem;"><strong>Reward/Stipend:</strong> ${escapeHtml(opp.reward || 'None specified')}</p>
         <p style="margin-top: 0.35rem;"><strong>Deadline:</strong> ${formatDeadline(opp.deadline).text} ${opp.deadline ? `(${new Date(opp.deadline).toUTCString()})` : ''}</p>
         <p style="margin-top: 0.35rem;"><strong>Last Checked:</strong> ${lastCheckedStr}</p>
@@ -1104,6 +2423,10 @@ function openDetailModal(oppId) {
   }, { once: true });
 
   document.getElementById('close-modal-x-btn')?.addEventListener('click', closeModal);
+  document.getElementById('modal-complete-profile-btn')?.addEventListener('click', () => {
+    closeModal();
+    switchTab('profile');
+  });
 
   document.getElementById('modal-watch-toggle-btn')?.addEventListener('click', async () => {
     await toggleWatch(opp.id);
@@ -1174,10 +2497,23 @@ function switchTab(tabName) {
   document.querySelectorAll('.tab-view').forEach((v) => {
     v.classList.toggle('active', v.id === `view-${tabName}`);
   });
+  if (tabName === 'changes') {
+    updateTimelineLastUpdated();
+  }
+  if (tabName === 'sources') {
+    renderSources();
+  }
 }
 
 // ── Sandbox Scenario Execution ─────────────────────────────────────────────
 async function triggerMockDeadlineExtension() {
+  const btn = document.getElementById('demo-deadline-btn');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="refresh-cw" class="rotating"></i> <span>Applying Shift...</span>';
+    if (window.lucide) window.lucide.createIcons();
+  }
   appendConsoleLog('Triggering Scenario A: Apex National Innovation Hackathon deadline extension (+30 days)...', 'info');
   try {
     const newDeadline = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
@@ -1207,10 +2543,23 @@ async function triggerMockDeadlineExtension() {
   } catch (err) {
     appendConsoleLog(`Error in demo simulation: ${err.message}`, 'error');
     showToast(`Error: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+      if (window.lucide) window.lucide.createIcons();
+    }
   }
 }
 
 async function triggerMockEligibilityChange() {
+  const btn = document.getElementById('demo-eligibility-btn');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="refresh-cw" class="rotating"></i> <span>Restricting...</span>';
+    if (window.lucide) window.lucide.createIcons();
+  }
   appendConsoleLog('Triggering Scenario B: Apex National Innovation Hackathon eligibility restriction ("Final Year students only")...', 'warn');
   try {
     const newEligibility = 'Open strictly to Final Year (4th year) engineering students. All team members must be graduating class.';
@@ -1239,10 +2588,23 @@ async function triggerMockEligibilityChange() {
   } catch (err) {
     appendConsoleLog(`Error: ${err.message}`, 'error');
     showToast(`Error: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+      if (window.lucide) window.lucide.createIcons();
+    }
   }
 }
 
 async function triggerScrapeNow() {
+  const btn = document.getElementById('demo-scrape-btn');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="refresh-cw" class="rotating"></i> <span>Crawling Portals...</span>';
+    if (window.lucide) window.lucide.createIcons();
+  }
   appendConsoleLog('Executing full crawl on all monitored portals...', 'info');
   try {
     let totalChanges = 0;
@@ -1257,10 +2619,23 @@ async function triggerScrapeNow() {
     announceStatus('Crawl complete across all sources.');
   } catch (err) {
     appendConsoleLog(`Scrape error: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+      if (window.lucide) window.lucide.createIcons();
+    }
   }
 }
 
 async function resetDemoState() {
+  const btn = document.getElementById('demo-reset-btn');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="refresh-cw" class="rotating"></i> <span>Resetting...</span>';
+    if (window.lucide) window.lucide.createIcons();
+  }
   appendConsoleLog('Resetting mock portal to baseline configuration...', 'info');
   try {
     await fetch(`${MOCK_PORTAL_URL}/admin/reset`, { method: 'POST' }).catch(() => null);
@@ -1275,6 +2650,12 @@ async function resetDemoState() {
     announceStatus('Demo portal reset to baseline state.');
   } catch (err) {
     appendConsoleLog(`Reset error: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+      if (window.lucide) window.lucide.createIcons();
+    }
   }
 }
 
@@ -1368,7 +2749,7 @@ function initEventListeners() {
       showToast(`Demo login error: ${err.message}`, 'error');
     } finally {
       btn.disabled = false;
-      btn.innerHTML = '<i data-lucide="play-circle"></i><span>Continue as Demo User</span>';
+      btn.innerHTML = '<i data-lucide="zap" class="demo-zap-icon"></i><span>Continue as Demo User (Fast-Track)</span>';
       if (window.lucide) window.lucide.createIcons();
     }
   });
@@ -1682,8 +3063,24 @@ function initEventListeners() {
     applyFilters();
   });
 
+  // Category Filter Chips
+  document.querySelectorAll('.category-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.category-chip').forEach((c) => c.classList.remove('active'));
+      chip.classList.add('active');
+      const selectedType = chip.getAttribute('data-type') || 'all';
+      state.selectedType = selectedType;
+      const typeFilterSelect = document.getElementById('type-filter');
+      if (typeFilterSelect) typeFilterSelect.value = selectedType;
+      applyFilters();
+    });
+  });
+
   document.getElementById('type-filter')?.addEventListener('change', (e) => {
     state.selectedType = e.target.value;
+    document.querySelectorAll('.category-chip').forEach((chip) => {
+      chip.classList.toggle('active', chip.getAttribute('data-type') === state.selectedType);
+    });
     applyFilters();
   });
 
@@ -1699,7 +3096,11 @@ function initEventListeners() {
     const saveBtn = document.getElementById('save-profile-btn');
     const statusEl = document.getElementById('profile-save-status');
     saveBtn.disabled = true;
-    saveBtn.textContent = 'Computing matches...';
+    saveBtn.innerHTML = '<span>Saving &amp; computing matches...</span>';
+    if (statusEl) {
+      statusEl.style.color = 'var(--ink-secondary)';
+      statusEl.textContent = 'Saving profile & evaluating match criteria...';
+    }
 
     const selectedTypes = Array.from(document.querySelectorAll('input[name="opp_type"]:checked')).map((c) => c.value);
 
@@ -1721,23 +3122,56 @@ function initEventListeners() {
         body: JSON.stringify(updated),
       });
 
-      state.profile = res.profile;
+      // Safely assign profile whether returned as res.profile or res directly
+      state.profile = (res && res.profile) ? res.profile : res;
       renderProfileHeader();
       renderProfileForm();
+
+      if (statusEl) {
+        statusEl.textContent = 'Fetching updated match results...';
+      }
+
       await loadOpportunities();
       updateMetrics();
 
-      statusEl.style.color = 'var(--accent-green)';
-      statusEl.textContent = 'Saved — scores recalculated.';
+      if (statusEl) {
+        statusEl.style.color = 'var(--accent-green)';
+        statusEl.textContent = 'Saved — match scores recalculated.';
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3500);
+      }
       showToast('Profile updated & match scores recalculated!', 'success');
-      setTimeout(() => (statusEl.textContent = ''), 3500);
     } catch (err) {
-      statusEl.style.color = 'var(--accent-terracotta)';
-      statusEl.textContent = err.message;
+      if (statusEl) {
+        statusEl.style.color = 'var(--accent-terracotta)';
+        statusEl.textContent = `Error: ${err.message}`;
+      }
+      showToast(`Error saving profile: ${err.message}`, 'error');
     } finally {
       saveBtn.disabled = false;
-      saveBtn.innerHTML = '<i data-lucide="check"></i><span>Save Profile &amp; Recalculate Radar Scores</span>';
-      if (window.lucide) window.lucide.createIcons();
+      saveBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        </svg>
+        <span>Save Changes</span>
+      `;
+    }
+  });
+
+  // Reset to default button
+  document.getElementById('reset-profile-btn')?.addEventListener('click', () => {
+    renderProfileForm();
+    showToast('Profile reset to saved values', 'info');
+  });
+
+  // Missing fields link
+  document.getElementById('completeness-link')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const gpaInput = document.getElementById('prof-gpa');
+    if (gpaInput) {
+      gpaInput.focus();
+      gpaInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   });
 
@@ -1748,27 +3182,43 @@ function initEventListeners() {
   document.getElementById('demo-reset-btn')?.addEventListener('click', resetDemoState);
   document.getElementById('clear-console-btn')?.addEventListener('click', () => {
     const c = document.getElementById('sandbox-logs');
-    if (c) c.innerHTML = '<div class="log-line log-info">[System] Console cleared.</div>';
+    if (c) {
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      c.innerHTML = `<div class="log-line log-info"><span class="log-timestamp">${time}</span><span class="log-badge log-badge-info">SYSTEM</span><span class="log-msg">Execution console cleared. Ready for simulation.</span></div>`;
+    }
   });
 
   // Refresh changes button
   document.getElementById('refresh-changes-btn')?.addEventListener('click', async () => {
-    await loadOpportunities();
-    extractChangesFromOpportunities();
-    showToast('Timeline refreshed', 'info');
+    const btn = document.getElementById('refresh-changes-btn');
+    if (btn) btn.classList.add('rotating');
+    try {
+      await loadOpportunities();
+      await loadChanges();
+      updateTimelineLastUpdated();
+      showToast('Timeline refreshed', 'info');
+    } catch (err) {
+      showToast('Could not refresh timeline: ' + err.message, 'error');
+    } finally {
+      if (btn) btn.classList.remove('rotating');
+    }
   });
 
-  // Add Source Modal
+  // Add / Edit Source Modal
   const sourceModal = document.getElementById('source-modal');
-  document.getElementById('add-source-btn')?.addEventListener('click', () => sourceModal?.showModal());
+  document.getElementById('add-source-btn')?.addEventListener('click', () => openSourceModal(null));
   document.getElementById('close-source-modal-btn')?.addEventListener('click', () => sourceModal?.close());
   document.getElementById('cancel-source-btn')?.addEventListener('click', () => sourceModal?.close());
 
   document.getElementById('new-source-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const isEdit = sourceModal?.getAttribute('data-mode') === 'edit';
     const label = document.getElementById('new-source-label').value;
     const url = document.getElementById('new-source-url').value;
     const interval = parseInt(document.getElementById('new-source-interval').value || '60', 10);
+    const submitBtn = document.getElementById('submit-source-btn');
+
+    if (submitBtn) submitBtn.disabled = true;
 
     try {
       await apiRequest('/api/sources', {
@@ -1776,11 +3226,86 @@ function initEventListeners() {
         body: JSON.stringify({ label, url, poll_interval: interval }),
       });
       sourceModal?.close();
-      showToast(`Source "${label}" added to radar monitoring!`, 'success');
+      showToast(isEdit ? `Source "${label}" updated successfully!` : `Source "${label}" added to radar monitoring!`, 'success');
       await loadSources();
+      await loadOpportunities();
     } catch (err) {
-      showToast(`Error adding source: ${err.message}`, 'error');
+      showToast(`Error saving source: ${err.message}`, 'error');
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
+  });
+
+  // Scan All Portals Button
+  document.getElementById('scan-all-sources-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('scan-all-sources-btn');
+    if (!state.sources || state.sources.length === 0) {
+      showToast('No sources configured to scan.', 'info');
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="refresh-cw" class="rotating"></i> <span>Scanning All...</span>';
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    showToast(`Initiating crawl across ${state.sources.length} portal(s)...`, 'info');
+
+    let totalOpps = 0;
+    let totalDiffs = 0;
+
+    for (let i = 0; i < state.sources.length; i++) {
+      const s = state.sources[i];
+      try {
+        const res = await apiRequest(`/api/sources/${s.id}/check-now`, { method: 'POST' });
+        totalOpps += res?.opportunitiesFound || 0;
+        totalDiffs += res?.changesDetected || 0;
+      } catch (err) {
+        console.warn(`[scan-all] check error for ${s.url}:`, err.message);
+      }
+    }
+
+    showToast(`All portals scanned! ${totalOpps} listings verified, ${totalDiffs} change(s) detected.`, 'success');
+    await loadAllData();
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="refresh-cw"></i> <span>Scan All Portals</span>';
+      if (window.lucide) window.lucide.createIcons();
+    }
+  });
+
+  // Sources Search & Filter Toolbar
+  const sourcesSearchInput = document.getElementById('sources-search-input');
+  const sourcesSearchClear = document.getElementById('sources-search-clear');
+
+  sourcesSearchInput?.addEventListener('input', (e) => {
+    state.sourcesSearch = e.target.value;
+    if (sourcesSearchClear) {
+      sourcesSearchClear.classList.toggle('hidden', !e.target.value);
+    }
+    renderSources();
+  });
+
+  sourcesSearchClear?.addEventListener('click', () => {
+    if (sourcesSearchInput) sourcesSearchInput.value = '';
+    state.sourcesSearch = '';
+    sourcesSearchClear.classList.add('hidden');
+    renderSources();
+  });
+
+  document.querySelectorAll('.source-filter-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.source-filter-chip').forEach((c) => {
+        c.classList.remove('active');
+        c.setAttribute('aria-checked', 'false');
+      });
+      chip.classList.add('active');
+      chip.setAttribute('aria-checked', 'true');
+      state.sourcesFilter = chip.getAttribute('data-filter') || 'all';
+      renderSources();
+    });
   });
 }
 

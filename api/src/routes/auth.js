@@ -337,6 +337,13 @@ router.post('/demo-login', async (req, res) => {
 
     const profile = await db.queryOne('SELECT * FROM user_profiles WHERE user_id = $1', [user.id]);
 
+    try {
+      const { recomputeMatches } = require('./profile');
+      await recomputeMatches(user.id);
+    } catch (e) {
+      console.warn('[auth] Demo login recompute matches skipped:', e.message);
+    }
+
     const accessToken = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
     const refreshToken = await createSession(user.id, req);
 

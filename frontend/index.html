@@ -14,108 +14,213 @@
 <body>
   <div id="app">
     <!-- ── Authentication View (/login & /signup & /forgot-password) ── -->
-    <div id="view-auth" class="auth-page-wrapper" style="display: none;">
-      <div class="auth-card">
-        <div class="auth-brand">
-          <div class="radar-mark" aria-hidden="true">
-            <i data-lucide="radar"></i>
-          </div>
-          <h1 class="brand-title">Opportunity<em>Radar</em></h1>
-          <p id="auth-subtitle">Autonomous opportunity intelligence for students</p>
-        </div>
-
-        <!-- Prominent Demo User Button (Judges Fast-Track) -->
-        <div class="demo-user-box">
-          <div class="demo-user-badge">
-            <i data-lucide="zap"></i> Fast-Track Evaluation
-          </div>
-          <button type="button" class="btn-demo-login" id="auth-demo-btn">
-            <i data-lucide="play-circle"></i>
-            <span>Continue as Demo User</span>
-          </button>
-          <div class="demo-user-hint">Instant access as Priya Sharma (IIT Bombay) without signing up</div>
-        </div>
-
-        <!-- Social Buttons Container -->
-        <div id="social-buttons-container" class="social-buttons-list">
-          <a href="/api/auth/oauth/google" class="btn-social" id="btn-oauth-google" style="display: none;">
-            <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-            <span>Continue with Google</span>
-          </a>
-          <a href="/api/auth/oauth/github" class="btn-social" id="btn-oauth-github" style="display: none;">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
-            <span>Continue with GitHub</span>
-          </a>
-          <a href="/api/auth/oauth/linkedin" class="btn-social" id="btn-oauth-linkedin" style="display: none;">
-            <svg viewBox="0 0 24 24" fill="#0A66C2"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>
-            <span>Continue with LinkedIn</span>
-          </a>
-        </div>
-
-        <div id="auth-divider-section" class="auth-divider">
-          <span>or continue with email</span>
-        </div>
-
-        <!-- Auth Form: Login / Signup -->
-        <form id="auth-form" class="auth-form">
-          <div class="form-field" id="field-name-group" style="display: none;">
-            <label for="auth-name">Full Name</label>
-            <input type="text" id="auth-name" placeholder="Priya Sharma" autocomplete="name" />
-            <span class="form-validation-msg" id="auth-name-error"></span>
-          </div>
-
-          <div class="form-field">
-            <label for="auth-email">University / Work Email</label>
-            <input type="email" id="auth-email" placeholder="student@university.edu" autocomplete="email" required />
-            <span class="form-validation-msg" id="auth-email-error"></span>
-          </div>
-
-          <div class="form-field">
-            <label for="auth-password">
-              <span>Password</span>
-              <a class="auth-link" id="auth-forgot-link" tabindex="0">Forgot password?</a>
-            </label>
-            <div class="input-password-wrapper">
-              <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" required minlength="8" />
-              <button type="button" class="password-toggle-btn" id="toggle-password-btn" aria-label="Show password">
-                <i data-lucide="eye" id="toggle-password-icon"></i>
-              </button>
+    <div id="view-auth" class="auth-split-layout" style="display: none;">
+      <!-- Left: Minimalist Sign-in Column -->
+      <div class="auth-left-pane">
+        <div class="auth-form-container">
+          <!-- Radar Brand Logo Mark -->
+          <div class="auth-brand-header">
+            <div class="auth-brand-logo" aria-label="OpportunityRadar Logo">
+              <svg width="42" height="42" viewBox="0 0 42 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="21" cy="21" r="20" stroke="#18181B" stroke-width="2"/>
+                <path d="M13 21C13 16.5817 16.5817 13 21 13" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M9 21C9 14.3726 14.3726 9 21 9" stroke="#18181B" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 3"/>
+                <path d="M17 21C17 18.7909 18.7909 17 21 17" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/>
+                <circle cx="21" cy="21" r="3.2" fill="#18181B"/>
+              </svg>
             </div>
-            <span class="form-validation-msg" id="auth-password-error"></span>
+            <h1 class="auth-main-title" id="auth-page-title">Sign into OpportunityRadar</h1>
+            <p id="auth-subtitle" class="auth-sub-title">Autonomous opportunity intelligence for students</p>
           </div>
 
-          <div class="form-validation-msg" id="auth-general-error"></div>
+          <!-- Auth Form: Login / Signup -->
+          <form id="auth-form" class="auth-clean-form">
+            <div class="form-field-clean" id="field-name-group" style="display: none;">
+              <label for="auth-name">Full Name <span class="auth-required">*</span></label>
+              <input type="text" id="auth-name" placeholder="Priya Sharma" autocomplete="name" />
+              <span class="form-validation-msg" id="auth-name-error"></span>
+            </div>
 
-          <button type="submit" class="btn-auth-submit" id="auth-submit-btn">
-            Sign In
-          </button>
-        </form>
+            <div class="form-field-clean">
+              <label for="auth-email">Email <span class="auth-required">*</span></label>
+              <input type="email" id="auth-email" placeholder="student@university.edu" autocomplete="email" required />
+              <span class="form-validation-msg" id="auth-email-error"></span>
+            </div>
 
-        <!-- Forgot Password Form (Sub-view) -->
-        <form id="forgot-form" class="auth-form" style="display: none;">
-          <h3 style="font-size: 1.15rem; margin-bottom: 0.25rem;">Reset your password</h3>
-          <p style="font-size: 0.82rem; color: var(--ink-secondary); margin-bottom: 0.5rem;">
-            Enter your email and we'll send you a password reset link.
+            <div class="form-field-clean">
+              <div class="form-label-row">
+                <label for="auth-password">Password <span class="auth-required">*</span></label>
+                <a class="auth-link auth-forgot-password-link" id="auth-forgot-link" tabindex="0">Forgot password?</a>
+              </div>
+              <div class="input-password-wrapper">
+                <input type="password" id="auth-password" placeholder="••••••••••••" autocomplete="current-password" required minlength="8" />
+                <button type="button" class="password-toggle-btn" id="toggle-password-btn" aria-label="Show password">
+                  <i data-lucide="eye" id="toggle-password-icon"></i>
+                </button>
+              </div>
+              <span class="form-validation-msg" id="auth-password-error"></span>
+            </div>
+
+            <div class="form-validation-msg" id="auth-general-error"></div>
+
+            <button type="submit" class="btn-auth-primary" id="auth-submit-btn">
+              Sign in
+            </button>
+          </form>
+
+          <!-- Forgot Password Form (Sub-view) -->
+          <form id="forgot-form" class="auth-clean-form" style="display: none;">
+            <h3 style="font-size: 1.15rem; margin-bottom: 0.25rem; font-weight: 700; color: #18181B;">Reset your password</h3>
+            <p style="font-size: 0.85rem; color: #71717A; margin-bottom: 0.75rem;">
+              Enter your email and we'll send you a password reset link.
+            </p>
+
+            <div class="form-field-clean">
+              <label for="forgot-email">Email Address <span class="auth-required">*</span></label>
+              <input type="email" id="forgot-email" placeholder="student@university.edu" required />
+              <span class="form-validation-msg" id="forgot-email-error"></span>
+            </div>
+
+            <button type="submit" class="btn-auth-primary" id="forgot-submit-btn">
+              Send Reset Link
+            </button>
+
+            <div style="text-align: center; margin-top: 0.75rem;">
+              <a class="auth-link" id="forgot-back-btn">← Back to Sign in</a>
+            </div>
+          </form>
+
+          <!-- OR Divider -->
+          <div id="auth-divider-section" class="auth-clean-divider">
+            <span class="auth-divider-line"></span>
+            <span class="auth-divider-text">OR</span>
+            <span class="auth-divider-line"></span>
+          </div>
+
+          <!-- Social Buttons List (dynamic, shown only if provider configured) -->
+          <div id="social-buttons-container" class="auth-social-list">
+            <a href="/api/auth/oauth/google" class="btn-social-clean" id="btn-oauth-google" style="display: none;">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+              <span>Sign in with Google</span>
+            </a>
+            <a href="/api/auth/oauth/github" class="btn-social-clean" id="btn-oauth-github" style="display: none;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+              <span>Sign in with GitHub</span>
+            </a>
+            <a href="/api/auth/oauth/linkedin" class="btn-social-clean" id="btn-oauth-linkedin" style="display: none;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="#0A66C2"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>
+              <span>Sign in with LinkedIn</span>
+            </a>
+          </div>
+
+          <!-- Demo User Fast-Track (Judge evaluation) -->
+          <div class="demo-user-box auth-demo-card">
+            <button type="button" class="btn-demo-clean" id="auth-demo-btn">
+              <i data-lucide="zap" class="demo-zap-icon"></i>
+              <span>Continue as Demo User (Fast-Track)</span>
+            </button>
+            <div class="demo-user-hint">One-click evaluation access as Priya Sharma (IIT Bombay)</div>
+          </div>
+
+          <!-- Switch Prompt -->
+          <p class="auth-switch-text" id="auth-switch-prompt">
+            Dont have an account? <a class="auth-link auth-switch-bold" id="auth-switch-link">Create one</a>
           </p>
+        </div>
+      </div>
 
-          <div class="form-field">
-            <label for="forgot-email">Email Address</label>
-            <input type="email" id="forgot-email" placeholder="student@university.edu" required />
-            <span class="form-validation-msg" id="forgot-email-error"></span>
+      <!-- Right: Promotional Dotted Panel -->
+      <div class="auth-right-pane">
+        <div class="auth-promo-card">
+          <div class="auth-promo-content">
+            <h2 class="auth-promo-heading">Opportunity intelligence and silent change detection for students</h2>
+            <p class="auth-promo-description">
+              Autonomous web agents monitoring official portals, real-time match scoring, and instant deadline extension alerts.
+            </p>
           </div>
 
-          <button type="submit" class="btn-auth-submit" id="forgot-submit-btn">
-            Send Reset Link
-          </button>
+          <!-- Mobile App Showcase (Mockup) -->
+          <div class="auth-phone-mockup-wrapper">
+            <div class="auth-phone-device">
+              <div class="phone-dynamic-island"></div>
+              <div class="phone-status-bar">
+                <span class="phone-time">9:41</span>
+                <div class="phone-icons">
+                  <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor"><path d="M1 9h2V7H1v2zm3 0h2V5H4v4zm3 0h2V3H7v6zm3 0h2V1h-2v8z"/></svg>
+                  <svg width="12" height="10" viewBox="0 0 12 10" fill="currentColor"><path d="M6 2C3.8 2 1.8 2.9.4 4.4L6 10l5.6-5.6C10.2 2.9 8.2 2 6 2z"/></svg>
+                  <svg width="16" height="8" viewBox="0 0 16 8" fill="currentColor"><rect x="0.5" y="0.5" width="13" height="7" rx="1.5" stroke="currentColor" fill="none"/><rect x="2" y="2" width="10" height="4" rx="0.5"/><path d="M15 2.5v3a1 1 0 0 1-1 1h-.5v-5H14a1 1 0 0 1 1 1z"/></svg>
+                </div>
+              </div>
 
-          <div style="text-align: center; margin-top: 0.5rem;">
-            <a class="auth-link" id="forgot-back-btn">← Back to Sign In</a>
+              <!-- Phone App Interface -->
+              <div class="phone-screen-content">
+                <div class="phone-header-row">
+                  <span class="phone-app-brand">OpportunityRadar</span>
+                  <span class="phone-live-badge"><span class="pulse-dot"></span> Live</span>
+                </div>
+
+                <!-- Match Score Card with Sparkline Curve -->
+                <div class="phone-chart-card">
+                  <div class="phone-chart-header">
+                    <div>
+                      <div class="phone-profile-name">Priya Sharma • 3rd Year</div>
+                      <div class="phone-fit-score">98.4% Match</div>
+                    </div>
+                    <span class="phone-trend-badge">+12% fit</span>
+                  </div>
+
+                  <!-- Trend Line Graph -->
+                  <div class="phone-graph-svg">
+                    <svg viewBox="0 0 260 76" class="sparkline-chart">
+                      <defs>
+                        <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stop-color="#18181B" stop-opacity="0.25"/>
+                          <stop offset="100%" stop-color="#18181B" stop-opacity="0.0"/>
+                        </linearGradient>
+                      </defs>
+                      <path d="M 0,60 Q 40,55 80,40 T 160,28 T 220,16 T 260,8 L 260,76 L 0,76 Z" fill="url(#chartGradient)"/>
+                      <path d="M 0,60 Q 40,55 80,40 T 160,28 T 220,16 T 260,8" fill="none" stroke="#18181B" stroke-width="2.2" stroke-linecap="round"/>
+                      <circle cx="260" cy="8" r="3.5" fill="#18181B"/>
+                    </svg>
+                  </div>
+                  <div class="phone-graph-labels">
+                    <span>Mon 15</span>
+                    <span>Wed 17</span>
+                    <span>Fri 19</span>
+                    <span>Sun 21</span>
+                  </div>
+                </div>
+
+                <!-- Live Tracked Opportunities -->
+                <div class="phone-opp-card">
+                  <div class="phone-opp-top">
+                    <span class="phone-opp-type">Internship</span>
+                    <span class="phone-opp-match">98% Fit</span>
+                  </div>
+                  <div class="phone-opp-title">Northwind Labs SWE Fellowship</div>
+                  <div class="phone-opp-meta">$4,500/mo • Closes in 4 days</div>
+                </div>
+
+                <div class="phone-opp-card alert-card">
+                  <div class="phone-opp-top">
+                    <span class="phone-opp-type">Hackathon</span>
+                    <span class="phone-alert-tag">⚠️ Deadline +11d</span>
+                  </div>
+                  <div class="phone-opp-title">Apex National Innovation Hackathon</div>
+                  <div class="phone-opp-meta">$15,000 Prize Pool • Teams of 2-6</div>
+                </div>
+
+                <!-- Phone Bottom Navigation Bar -->
+                <div class="phone-nav-bar">
+                  <div class="phone-nav-item active"><i data-lucide="radar"></i></div>
+                  <div class="phone-nav-item"><i data-lucide="bell"></i></div>
+                  <div class="phone-nav-item"><i data-lucide="bookmark"></i></div>
+                  <div class="phone-nav-item"><i data-lucide="user"></i></div>
+                </div>
+              </div>
+            </div>
           </div>
-        </form>
-
-        <p class="auth-switch-text" id="auth-switch-prompt">
-          Don't have an account? <a class="auth-link" id="auth-switch-link">Sign up</a>
-        </p>
+        </div>
       </div>
     </div>
 
@@ -219,109 +324,194 @@
       <header class="app-header">
         <div class="header-container">
           <div class="brand">
-            <div class="radar-mark" aria-hidden="true">
-              <i data-lucide="radar"></i>
+            <div class="radar-mark" aria-label="OpportunityRadar Logo">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 2a10 10 0 0 1 10 10"></path>
+                <path d="M12 6a6 6 0 0 1 6 6"></path>
+                <circle cx="12" cy="12" r="2.2" fill="currentColor"></circle>
+              </svg>
             </div>
             <div class="brand-text">
-              <h1 class="brand-title">Opportunity<em>Radar</em></h1>
-              <p class="brand-tagline">Autonomous opportunity intelligence for students</p>
+              <h1 class="brand-title">OpportunityRadar</h1>
             </div>
           </div>
 
-        <div class="header-badges">
-          <div class="status-pill" id="pill-api-health" title="API status (/health)">
-            <span class="status-dot dot-active" id="dot-api"></span>
-            <span class="pill-label">API:</span>
-            <span class="pill-val" id="val-api">Connecting...</span>
-          </div>
-          <div class="status-pill" id="pill-portal-health" title="Mock Portal status (/health)">
-            <span class="status-dot dot-active" id="dot-portal"></span>
-            <span class="pill-label">Portal:</span>
-            <span class="pill-val" id="val-portal">Connecting...</span>
-          </div>
-        </div>
+          <!-- Navigation Tabs in unified top bar -->
+          <nav class="main-nav" aria-label="Primary navigation">
+            <button class="nav-tab active" data-tab="radar" id="tab-radar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 6a6 6 0 0 1 6 6"/><circle cx="12" cy="12" r="2"/></svg>
+              <span>Radar Feed</span>
+              <span class="tab-badge" id="radar-count-badge" style="display: none;">0</span>
+            </button>
+            <button class="nav-tab" data-tab="changes" id="tab-changes">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>Change Timeline</span>
+              <span class="tab-badge new-alert-badge hidden" id="changes-count-badge">0</span>
+            </button>
+            <button class="nav-tab" data-tab="profile" id="tab-profile">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span>Student Fit Profile</span>
+            </button>
+            <button class="nav-tab" data-tab="sources" id="tab-sources">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              <span>Monitored Sources</span>
+            </button>
+            <button class="nav-tab demo-highlight" data-tab="sandbox" id="tab-sandbox">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>
+              <span>Sandbox</span>
+            </button>
+          </nav>
 
-        <div class="header-user-section">
-          <button id="alerts-toggle-btn" class="icon-button notification-btn" aria-label="View notifications">
-            <i data-lucide="bell"></i>
-            <span id="unread-count" class="badge-count hidden">0</span>
-          </button>
+          <!-- Status pills (preserved for health checks) -->
+          <div class="header-badges" style="display: none;" aria-hidden="true">
+            <div class="status-pill" id="pill-api-health" title="API status (/health)">
+              <span class="status-dot dot-active" id="dot-api"></span>
+              <span class="pill-label">API:</span>
+              <span class="pill-val" id="val-api">Connecting...</span>
+            </div>
+            <div class="status-pill" id="pill-portal-health" title="Mock Portal status (/health)">
+              <span class="status-dot dot-active" id="dot-portal"></span>
+              <span class="pill-label">Portal:</span>
+              <span class="pill-val" id="val-portal">Connecting...</span>
+            </div>
+          </div>
 
-          <div class="header-user-wrapper">
-            <div class="profile-chip" id="header-profile-btn" role="button" tabindex="0">
-              <div class="avatar" id="header-avatar">--</div>
-              <div class="profile-info-compact">
-                <span class="profile-name" id="header-user-name">Loading...</span>
-                <span class="profile-meta" id="header-user-meta">Student Profile</span>
+          <div class="header-user-section">
+            <button id="alerts-toggle-btn" class="icon-button notification-btn" aria-label="View notifications">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+              <span id="unread-count" class="badge-count hidden">0</span>
+            </button>
+
+            <div class="header-user-wrapper">
+              <div class="profile-chip" id="header-profile-btn" role="button" tabindex="0">
+                <div class="avatar" id="header-avatar">PS</div>
+                <div class="profile-info-compact">
+                  <div class="profile-name-row">
+                    <span class="profile-name" id="header-user-name">Priya Sharma</span>
+                    <svg class="chevron-down-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+                  <span class="profile-meta" id="header-user-meta">3rd Year • Computer Science</span>
+                </div>
+              </div>
+              <div class="user-dropdown-menu" id="user-dropdown-menu">
+                <div class="dropdown-user-header">
+                  <div class="dropdown-user-name" id="dropdown-name">Student User</div>
+                  <div class="dropdown-user-email" id="dropdown-email">user@example.com</div>
+                </div>
+                <button type="button" class="dropdown-item" id="dropdown-profile-btn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <span>Student Fit Profile</span>
+                </button>
+                <button type="button" class="dropdown-item logout-item" id="dropdown-logout-btn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                  <span>Sign Out</span>
+                </button>
               </div>
             </div>
-            <div class="user-dropdown-menu" id="user-dropdown-menu">
-              <div class="dropdown-user-header">
-                <div class="dropdown-user-name" id="dropdown-name">Student User</div>
-                <div class="dropdown-user-email" id="dropdown-email">user@example.com</div>
-              </div>
-              <button type="button" class="dropdown-item" id="dropdown-profile-btn">
-                <i data-lucide="user"></i>
-                <span>Student Fit Profile</span>
-              </button>
-              <button type="button" class="dropdown-item logout-item" id="dropdown-logout-btn">
-                <i data-lucide="log-out"></i>
-                <span>Sign Out</span>
-              </button>
-            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      <!-- Navigation Tabs -->
-      <nav class="main-nav" aria-label="Primary navigation">
-        <button class="nav-tab active" data-tab="radar" id="tab-radar">
-          <i data-lucide="radar"></i>
-          <span>Radar Feed</span>
-          <span class="tab-badge" id="radar-count-badge">0</span>
-        </button>
-        <button class="nav-tab" data-tab="changes" id="tab-changes">
-          <i data-lucide="clock"></i>
-          <span>Change Timeline</span>
-          <span class="tab-badge new-alert-badge hidden" id="changes-count-badge">0</span>
-        </button>
-        <button class="nav-tab" data-tab="profile" id="tab-profile">
-          <i data-lucide="user"></i>
-          <span>Student Fit Profile</span>
-        </button>
-        <button class="nav-tab" data-tab="sources" id="tab-sources">
-          <i data-lucide="globe"></i>
-          <span>Monitored Sources</span>
-        </button>
-        <button class="nav-tab demo-highlight" data-tab="sandbox" id="tab-sandbox">
-          <i data-lucide="flask-conical"></i>
-          <span>Live Demo Sandbox</span>
-        </button>
-      </nav>
-    </header>
+      <!-- Main Content Area -->
+      <main class="main-content">
+        <!-- Tab 1: Radar Feed -->
+        <section id="view-radar" class="tab-view active">
+          <!-- Personalized Welcome & Overall Match Hero Section -->
+          <div class="radar-hero-section">
+            <div class="radar-hero-left">
+              <div class="hero-greeting" id="hero-greeting-time">Good evening,</div>
+              <h2 class="hero-name" id="hero-student-name">Priya <span class="wave-emoji">👋</span></h2>
+              <div class="hero-meta" id="hero-student-meta">3rd Year • Computer Science • IIT Bombay</div>
+              <p class="hero-quote">“Here are the best opportunities for you, based on your profile and latest updates from official sources.”</p>
+            </div>
 
-    <!-- Main Content Area -->
-    <main class="main-content">
-      <!-- Tab 1: Radar Feed -->
-      <section id="view-radar" class="tab-view active">
-        <!-- Control Bar: Search & Filters -->
-        <div class="view-controls">
-          <div class="search-box">
-            <i data-lucide="search" class="search-icon"></i>
-            <input type="text" id="opp-search" placeholder="Search internships, hackathons, companies, or skills (e.g. Python, ML)..." />
+            <div class="radar-hero-right">
+              <div class="overall-match-card">
+                <div class="match-card-header">
+                  <div class="match-card-title-group">
+                    <span class="match-card-title">Your Overall Match</span>
+                    <svg class="info-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                  </div>
+                  <div class="match-card-status">
+                    <span class="live-pill"><span class="live-pulse"></span>Live</span>
+                    <span class="match-updated-time" id="hero-match-updated">Updated 2 hours ago</span>
+                  </div>
+                </div>
+
+                <div class="match-card-metrics">
+                  <div class="match-score-row">
+                    <span class="hero-overall-num" id="hero-overall-percentage">98.4% Match</span>
+                    <span class="hero-trend-pill" id="hero-trend-badge">+12% fit <span class="trend-arrow">↑</span></span>
+                  </div>
+                  <p class="hero-match-subtext" id="hero-match-subtext">Your profile is a great fit for 28 new opportunities this week.</p>
+                </div>
+
+                <div class="hero-sparkline-area">
+                  <svg viewBox="0 0 440 90" preserveAspectRatio="none" class="hero-sparkline-svg">
+                    <defs>
+                      <linearGradient id="heroSparklineGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#22C55E" stop-opacity="0.32" />
+                        <stop offset="100%" stop-color="#22C55E" stop-opacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    <path d="M 0,78 Q 70,74 140,55 T 280,36 T 360,18 T 440,8 L 440,90 L 0,90 Z" fill="url(#heroSparklineGrad)" />
+                    <path d="M 0,78 Q 70,74 140,55 T 280,36 T 360,18 T 440,8" fill="none" stroke="#15803D" stroke-width="2.6" stroke-linecap="round" />
+                    <circle cx="440" cy="8" r="4.5" fill="#15803D" />
+                  </svg>
+                  <div class="hero-sparkline-ticks">
+                    <span>Mon 15</span>
+                    <span>Tue 16</span>
+                    <span>Wed 17</span>
+                    <span>Thu 18</span>
+                    <span>Fri 19</span>
+                    <span>Sat 20</span>
+                    <span>Sun 21</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="filter-group">
-            <label class="filter-label" for="type-filter">Category:</label>
-            <select id="type-filter" class="filter-select">
+          <!-- Unified Search Bar & Category Filter Chips -->
+          <div class="radar-search-filter-bar">
+            <div class="radar-search-box">
+              <svg class="radar-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" id="opp-search" placeholder="Search internships, hackathons, scholarships, companies, or skills (e.g. Python, ML)..." />
+            </div>
+
+            <div class="radar-category-chips" id="category-chips-group">
+              <button type="button" class="category-chip active" data-type="all">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+                <span>All opportunities</span>
+              </button>
+              <button type="button" class="category-chip" data-type="internship">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                <span>Internship</span>
+              </button>
+              <button type="button" class="category-chip" data-type="hackathon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7.5c-.83 0-1.5.67-1.5 1.5V22h12v-2.5c0-.83-.67-1.5-1.5-1.5H15c-.55 0-1-.45-1-1v-2.34"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                <span>Hackathon</span>
+              </button>
+              <button type="button" class="category-chip" data-type="scholarship">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                <span>Scholarship</span>
+              </button>
+              <button type="button" class="category-chip" data-type="placement">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="22" x2="20" y2="22"></line><line x1="2" y1="11" x2="22" y2="11"></line><path d="M12 2L2 7l10 5 10-5-10-5z"></path><line x1="6" y1="11" x2="6" y2="22"></line><line x1="10" y1="11" x2="10" y2="22"></line><line x1="14" y1="11" x2="14" y2="22"></line><line x1="18" y1="11" x2="18" y2="22"></line></svg>
+                <span>Placement</span>
+              </button>
+            </div>
+
+            <!-- Preserved compatibility controls for scripts & tests -->
+            <select id="type-filter" style="display: none;" aria-hidden="true">
               <option value="all">All Types</option>
               <option value="internship">Internships</option>
               <option value="hackathon">Hackathons</option>
               <option value="scholarship">Scholarships</option>
+              <option value="placement">Placements</option>
             </select>
-
-            <label class="filter-label" for="match-filter">Fit Level:</label>
-            <select id="match-filter" class="filter-select">
+            <select id="match-filter" style="display: none;" aria-hidden="true">
               <option value="all">All Fit Levels</option>
               <option value="MATCH">Strong Match (80%+)</option>
               <option value="PARTIAL">Partial Fit (50-79%)</option>
@@ -329,48 +519,41 @@
               <option value="closing">Closing Soon</option>
             </select>
           </div>
-        </div>
 
-        <!-- Metric summary strip (Warm Light, No Rainbow Numbers) -->
-        <div class="metric-strip">
-          <div class="metric-card">
-            <span class="metric-num" id="metric-total">0</span>
-            <span class="metric-label">Opportunities Tracked</span>
+          <!-- Preserved metric elements (kept in DOM for updateMetrics()) -->
+          <div class="metric-strip" style="display: none;" aria-hidden="true">
+            <span id="metric-total">0</span>
+            <span id="metric-matches">0</span>
+            <span id="metric-closing">0</span>
+            <span id="metric-watched">0</span>
           </div>
-          <div class="metric-card">
-            <span class="metric-num num-matches" id="metric-matches">0</span>
-            <span class="metric-label">Strong Matches For You</span>
-          </div>
-          <div class="metric-card">
-            <span class="metric-num num-closing" id="metric-closing">0</span>
-            <span class="metric-label">Closing in &lt; 14 Days</span>
-          </div>
-          <div class="metric-card">
-            <span class="metric-num" id="metric-watched">0</span>
-            <span class="metric-label">Watchlisted</span>
-          </div>
-        </div>
 
-        <!-- Opportunity Cards Grid -->
-        <div id="opp-cards-container" class="cards-grid">
-          <div class="loading-state">
-            <div class="spinner"></div>
-            <p>Scanning opportunities with OpportunityRadar...</p>
+          <!-- Opportunity Cards Grid -->
+          <div id="opp-cards-container" class="cards-grid">
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Scanning opportunities with OpportunityRadar...</p>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
       <!-- Tab 2: Change Timeline -->
       <section id="view-changes" class="tab-view">
-        <div class="view-header">
-          <div>
-            <h2 class="view-title">Silent Change Detection Feed</h2>
-            <p class="view-subtitle">OpportunityRadar continuously diffs portal snapshots to catch silent deadline shifts, altered eligibility requirements, and stealth closures before you get disqualified.</p>
+        <div class="view-header timeline-view-header">
+          <div class="timeline-header-text">
+            <h2 class="view-title timeline-main-title">Silent Change Detection Feed</h2>
+            <p class="view-subtitle timeline-subtitle">OpportunityRadar continuously diffs portal snapshots to catch silent deadline shifts, altered eligibility requirements, and stealth closures before you get disqualified.</p>
           </div>
-          <button id="refresh-changes-btn" class="btn btn-secondary">
-            <i data-lucide="rotate-cw"></i>
-            <span>Refresh Timeline</span>
-          </button>
+          <div class="timeline-header-controls">
+            <button id="refresh-changes-btn" class="btn btn-secondary btn-refresh-timeline">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="refresh-icon">
+                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57L21 8"/>
+                <path d="M21 3v5h-5"/>
+              </svg>
+              <span>Refresh Timeline</span>
+            </button>
+            <div class="timeline-last-updated" id="timeline-last-updated">Last updated: Oct 17, 2026, 07:38:49 PM</div>
+          </div>
         </div>
 
         <div id="changes-timeline-container" class="timeline-container">
@@ -380,115 +563,268 @@
 
       <!-- Tab 3: Student Fit Profile -->
       <section id="view-profile" class="tab-view">
-        <div class="view-header">
-          <div>
-            <h2 class="view-title">Student Profile & Match Engine Settings</h2>
-            <p class="view-subtitle">The match engine compares each opportunity's strict eligibility wording against your student profile to produce plain-language qualification reasons.</p>
+        <div class="view-header profile-view-header">
+          <div class="profile-header-text">
+            <h2 class="view-title profile-main-title">Student Profile & Match Engine Settings</h2>
+            <p class="view-subtitle profile-subtitle">The match engine compares each opportunity's strict eligibility wording against your student profile to produce plain-language qualification reasons.</p>
+          </div>
+          <div class="profile-completeness-card" id="profile-completeness-card">
+            <div class="completeness-gauge" id="completeness-gauge">
+              <svg class="gauge-ring" viewBox="0 0 36 36">
+                <path class="gauge-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path class="gauge-fill" id="gauge-fill-path" stroke-dasharray="72, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              </svg>
+              <span class="gauge-percent" id="gauge-percent-text">72%</span>
+            </div>
+            <div class="completeness-info">
+              <div class="completeness-title">Profile Completeness</div>
+              <div class="completeness-subtitle">Complete your profile to get better matches.</div>
+              <a href="#prof-gpa" class="completeness-link" id="completeness-link">View missing fields &rarr;</a>
+            </div>
           </div>
         </div>
 
-        <div class="profile-layout">
-          <form id="profile-form" class="profile-form">
-            <div class="form-row two-col">
-              <div class="form-group">
-                <label for="prof-name">Full Name</label>
-                <input type="text" id="prof-name" placeholder="e.g. Student User" required />
+        <form id="profile-form" class="fit-profile-form">
+          <!-- Card 1: Basic Information -->
+          <div class="fit-profile-card">
+            <div class="fit-card-sidebar">
+              <div class="fit-card-icon-box">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
               </div>
-              <div class="form-group">
-                <label for="prof-year">Current Year of Study</label>
-                <select id="prof-year">
-                  <option value="1st">1st Year (Freshman)</option>
-                  <option value="2nd">2nd Year (Sophomore)</option>
-                  <option value="3rd" selected>3rd Year (Pre-final)</option>
-                  <option value="4th">4th Year (Final Year)</option>
-                  <option value="PG">Postgraduate / Masters</option>
-                </select>
+              <div class="fit-card-meta">
+                <h3 class="fit-card-title">Basic Information</h3>
+                <p class="fit-card-desc">This information helps us match opportunities with your academic profile.</p>
               </div>
             </div>
 
-            <div class="form-row two-col">
-              <div class="form-group">
-                <label for="prof-branch">Major / Academic Branch</label>
-                <input type="text" id="prof-branch" placeholder="e.g. Computer Science, Electrical Engineering" required />
-              </div>
-              <div class="form-group">
-                <label for="prof-college">College / University</label>
-                <input type="text" id="prof-college" placeholder="e.g. National Institute of Technology" required />
-              </div>
-            </div>
+            <div class="fit-card-body">
+              <div class="fit-form-grid">
+                <!-- Full Name -->
+                <div class="fit-form-group">
+                  <label for="prof-name">Full Name</label>
+                  <div class="input-with-icon-wrapper">
+                    <div class="input-icon-slot">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                      </svg>
+                    </div>
+                    <input type="text" id="prof-name" class="fit-input-field" placeholder="Priya Sharma" required />
+                  </div>
+                </div>
 
-            <div class="form-group">
-              <label for="prof-skills">Technical Skills (comma-separated)</label>
-              <input type="text" id="prof-skills" placeholder="e.g. Python, Machine Learning, React, Node.js, SQL, C++" />
-              <small class="form-hint">Used for semantic matching against requirements in internship and hackathon descriptions.</small>
-            </div>
+                <!-- Current Year of Study -->
+                <div class="fit-form-group">
+                  <label for="prof-year">Current Year of Study</label>
+                  <div class="input-with-icon-wrapper select-wrapper combobox-wrapper" id="combobox-wrapper-year">
+                    <div class="input-icon-slot">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+                        <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                      </svg>
+                    </div>
+                    <select id="prof-year" class="sr-only" tabindex="-1">
+                      <option value="1st">1st Year (Freshman)</option>
+                      <option value="2nd">2nd Year (Sophomore)</option>
+                      <option value="3rd" selected>3rd Year (Pre-final)</option>
+                      <option value="4th">4th Year (Final Year)</option>
+                      <option value="Masters">Masters / Postgrad</option>
+                      <option value="PhD">PhD / Doctorate</option>
+                    </select>
+                    <button type="button" class="fit-select-trigger" id="prof-year-trigger" aria-haspopup="listbox" aria-expanded="false">
+                      <span class="select-trigger-label" id="prof-year-label">3rd Year (Pre-final)</span>
+                      <span class="select-chevron-slot">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                      </span>
+                    </button>
+                    <div class="fit-combobox-menu" id="menu-prof-year" role="listbox" hidden></div>
+                  </div>
+                </div>
 
-            <div class="form-group">
-              <label for="prof-interests">Domains & Interests (comma-separated)</label>
-              <input type="text" id="prof-interests" placeholder="e.g. AI/ML, Climate Tech, Web3, EdTech, Open Source" />
-            </div>
+                <!-- Major / Academic Branch -->
+                <div class="fit-form-group">
+                  <label for="prof-branch">Major / Academic Branch</label>
+                  <div class="input-with-icon-wrapper combobox-wrapper" id="combobox-wrapper-branch">
+                    <div class="input-icon-slot">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+                        <path d="M6 6h10"/>
+                        <path d="M6 10h10"/>
+                      </svg>
+                    </div>
+                    <input type="text" id="prof-branch" class="fit-input-field combobox-input" placeholder="e.g. Computer Science" autocomplete="off" required />
+                    <button type="button" class="select-chevron-btn" id="btn-toggle-branch" aria-label="Toggle branch options" tabindex="-1">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m6 9 6 6 6-6"/>
+                      </svg>
+                    </button>
+                    <div class="fit-combobox-menu" id="menu-prof-branch" role="listbox" hidden></div>
+                  </div>
+                </div>
 
-            <div class="form-row two-col">
-              <div class="form-group">
-                <label for="prof-gpa">Current GPA / CGPA (Optional)</label>
-                <input type="number" step="0.01" min="0" max="10" id="prof-gpa" placeholder="e.g. 3.8 or 8.5" />
-                <small class="form-hint">Used to evaluate minimum GPA criteria on listings.</small>
-              </div>
-              <div class="form-group">
-                <label for="prof-locations">Preferred Locations (comma-separated)</label>
-                <input type="text" id="prof-locations" placeholder="e.g. Remote, Bangalore, Delhi, Mumbai" />
-              </div>
-            </div>
-              <div class="form-group">
-                <label>Opportunity Types of Interest</label>
-                <div class="checkbox-row">
-                  <label class="checkbox-label">
-                    <input type="checkbox" name="opp_type" value="internship" checked /> Internships
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" name="opp_type" value="hackathon" checked /> Hackathons
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" name="opp_type" value="scholarship" checked /> Scholarships
-                  </label>
+                <!-- College / University -->
+                <div class="fit-form-group">
+                  <label for="prof-college">College / University</label>
+                  <div class="input-with-icon-wrapper combobox-wrapper" id="combobox-wrapper-college">
+                    <div class="input-icon-slot">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="2" x2="22" y1="20" y2="20"/>
+                        <path d="M4 20V10"/>
+                        <path d="M20 20V10"/>
+                        <path d="M10 20v-7a2 2 0 0 1 4 0v7"/>
+                        <path d="M2 10 12 3l10 7"/>
+                      </svg>
+                    </div>
+                    <input type="text" id="prof-college" class="fit-input-field combobox-input" placeholder="e.g. IIT Bombay, MAIT, BITS" autocomplete="off" required />
+                    <button type="button" class="select-chevron-btn" id="btn-toggle-college" aria-label="Toggle college options" tabindex="-1">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m6 9 6 6 6-6"/>
+                      </svg>
+                    </button>
+                    <div class="fit-combobox-menu" id="menu-prof-college" role="listbox" hidden></div>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary" id="save-profile-btn">
-                <i data-lucide="check"></i>
-                <span>Save Profile & Recalculate Radar Scores</span>
-              </button>
-              <span id="profile-save-status" class="save-status"></span>
-            </div>
-          </form>
-
-          <aside class="profile-preview-card">
-            <h3 class="preview-title">Radar Match Persona</h3>
-            <div class="preview-avatar-large" id="preview-avatar">--</div>
-            <h4 class="preview-name" id="preview-name">Student Profile</h4>
-            <p class="preview-inst" id="preview-inst">Set your academic details</p>
-
-            <div class="preview-tags">
-              <span class="tag-title">Skills:</span>
-              <div class="chips-list" id="preview-skills-chips"></div>
-            </div>
-
-            <div class="preview-tags">
-              <span class="tag-title">Interests:</span>
-              <div class="chips-list" id="preview-interests-chips"></div>
-            </div>
-
-            <div class="ai-match-explainer">
-              <div class="explainer-icon"><i data-lucide="sparkles"></i></div>
-              <div class="explainer-text">
-                <strong>Why OpportunityRadar is different:</strong>
-                <p>Standard job boards aggregate indiscriminately. OpportunityRadar evaluates eligibility phrasing, academic year restrictions, and skill overlap so you never waste hours applying to programs you are ineligible for.</p>
+          <!-- Card 2: Skills & Interests -->
+          <div class="fit-profile-card">
+            <div class="fit-card-sidebar">
+              <div class="fit-card-icon-box">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </div>
+              <div class="fit-card-meta">
+                <h3 class="fit-card-title">Skills & Interests</h3>
+                <p class="fit-card-desc">Used for semantic matching against requirements in internship and hackathon descriptions.</p>
               </div>
             </div>
-          </aside>
-        </div>
+
+            <div class="fit-card-body">
+              <div class="fit-form-vertical">
+                <!-- Technical Skills -->
+                <div class="fit-form-group">
+                  <label for="prof-skills">Technical Skills</label>
+                  <input type="text" id="prof-skills" class="sr-only" aria-hidden="true" tabindex="-1" />
+                  <div class="tags-input-container" id="tags-container-skills" data-target="prof-skills">
+                    <div class="tags-list" id="tags-list-skills"></div>
+                    <input type="text" class="tags-inline-input" id="tags-input-skills" placeholder="Add a skill..." />
+                    <div class="tags-chevron pointer-events-none">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m6 9 6 6 6-6"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <small class="fit-form-hint">Add skills relevant to opportunities (e.g., Python, ML, React, SQL).</small>
+                </div>
+
+                <!-- Domains & Interests -->
+                <div class="fit-form-group">
+                  <label for="prof-interests">Domains & Interests</label>
+                  <input type="text" id="prof-interests" class="sr-only" aria-hidden="true" tabindex="-1" />
+                  <div class="tags-input-container" id="tags-container-interests" data-target="prof-interests">
+                    <div class="tags-list" id="tags-list-interests"></div>
+                    <input type="text" class="tags-inline-input" id="tags-input-interests" placeholder="Add a domain..." />
+                    <div class="tags-chevron pointer-events-none">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m6 9 6 6 6-6"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <small class="fit-form-hint">Select domains you're interested in (e.g., AI/ML, EdTech, Finance).</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Academic & Preferences -->
+          <div class="fit-profile-card">
+            <div class="fit-card-sidebar">
+              <div class="fit-card-icon-box">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+              </div>
+              <div class="fit-card-meta">
+                <h3 class="fit-card-title">Academic & Preferences</h3>
+                <p class="fit-card-desc">These details help us filter and rank the most relevant opportunities for you.</p>
+              </div>
+            </div>
+
+            <div class="fit-card-body">
+              <div class="fit-form-grid">
+                <!-- Current GPA / CGPA -->
+                <div class="fit-form-group">
+                  <label for="prof-gpa">Current GPA / CGPA (Optional)</label>
+                  <div class="input-with-icon-wrapper">
+                    <div class="input-icon-slot">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+                        <polyline points="16 7 22 7 22 13"/>
+                      </svg>
+                    </div>
+                    <input type="number" step="0.01" min="0" max="10" id="prof-gpa" class="fit-input-field" placeholder="e.g. 3.8 or 8.5" />
+                  </div>
+                  <small class="fit-form-hint">Used to evaluate minimum GPA criteria on listings.</small>
+                </div>
+
+                <!-- Preferred Locations -->
+                <div class="fit-form-group">
+                  <label for="prof-locations">Preferred Locations</label>
+                  <input type="text" id="prof-locations" class="sr-only" aria-hidden="true" tabindex="-1" />
+                  <div class="tags-input-container" id="tags-container-locations" data-target="prof-locations">
+                    <div class="tags-list" id="tags-list-locations"></div>
+                    <input type="text" class="tags-inline-input" id="tags-input-locations" placeholder="Add a location..." />
+                    <div class="tags-chevron pointer-events-none">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m6 9 6 6 6-6"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <small class="fit-form-hint">Select preferred work locations (e.g., Remote, Bangalore).</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preserved Opportunity Types (Required for matching pipeline contract) -->
+          <div class="fit-preserved-options sr-only" aria-hidden="true">
+            <input type="checkbox" name="opp_type" value="internship" checked />
+            <input type="checkbox" name="opp_type" value="hackathon" checked />
+            <input type="checkbox" name="opp_type" value="scholarship" checked />
+          </div>
+
+          <!-- Bottom Form Actions -->
+          <div class="fit-form-footer">
+            <div id="profile-save-status" class="fit-save-status"></div>
+            <div class="fit-footer-buttons">
+              <button type="button" class="btn-fit-reset" id="reset-profile-btn">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57L21 8"/>
+                  <path d="M21 3v5h-5"/>
+                </svg>
+                <span>Reset to Default</span>
+              </button>
+              <button type="submit" class="btn-fit-save" id="save-profile-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/>
+                  <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                <span>Save Changes</span>
+              </button>
+            </div>
+          </div>
+        </form>
       </section>
 
       <!-- Tab 4: Monitored Sources -->
@@ -498,12 +834,38 @@
             <h2 class="view-title">Monitored Web Portals</h2>
             <p class="view-subtitle">Sources crawled by autonomous agents. Add institutional URLs, hackathon aggregators, or company careers pages.</p>
           </div>
-          <button id="add-source-btn" class="btn btn-primary">
-            <i data-lucide="plus"></i>
-            <span>Add Source to Monitor</span>
-          </button>
+          <div class="sources-header-actions">
+            <button id="scan-all-sources-btn" class="btn btn-secondary">
+              <i data-lucide="refresh-cw"></i>
+              <span>Scan All Portals</span>
+            </button>
+            <button id="add-source-btn" class="btn btn-primary">
+              <i data-lucide="plus"></i>
+              <span>Add Source to Monitor</span>
+            </button>
+          </div>
         </div>
 
+        <!-- Compact Monitoring Overview Section -->
+        <div id="sources-overview-container" class="sources-overview-grid" aria-label="Portal Monitoring Summary">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="sources-toolbar">
+          <div class="sources-search-wrapper">
+            <i data-lucide="search" class="sources-search-icon"></i>
+            <input type="text" id="sources-search-input" class="sources-search-input" placeholder="Filter monitored portals by name or URL..." autocomplete="off" aria-label="Filter monitored sources" />
+            <button id="sources-search-clear" class="sources-search-clear hidden" aria-label="Clear filter"><i data-lucide="x"></i></button>
+          </div>
+          <div class="sources-filter-chips" id="sources-filter-chips" role="radiogroup" aria-label="Filter sources by status">
+            <button class="source-filter-chip active" data-filter="all" role="radio" aria-checked="true">All Portals (<span id="filter-count-all">0</span>)</button>
+            <button class="source-filter-chip" data-filter="active" role="radio" aria-checked="false">Active (<span id="filter-count-active">0</span>)</button>
+            <button class="source-filter-chip" data-filter="listings" role="radio" aria-checked="false">With Listings (<span id="filter-count-listings">0</span>)</button>
+          </div>
+        </div>
+
+        <!-- Sources Grid -->
         <div id="sources-list-container" class="sources-grid">
           <!-- Populated by JS -->
         </div>
@@ -511,104 +873,162 @@
 
       <!-- Tab 5: Hackathon Demo Sandbox -->
       <section id="view-sandbox" class="tab-view">
-        <div class="sandbox-hero">
-          <div class="sandbox-header-info">
-            <span class="badge-demo">HACKATHON JURY & DEMO MODE</span>
-            <h2 class="view-title">Simulate Real-World Opportunity Changes</h2>
-            <p class="view-subtitle">Test OpportunityRadar's full end-to-end loop: alter a listing in the Mock Portal, trigger agent extraction, and watch the change detection engine classify the event, compute diffs, and dispatch notifications in real-time.</p>
+        <div class="view-header sandbox-view-header">
+          <div>
+            <div class="sandbox-header-top">
+              <h2 class="view-title">Live Demo Sandbox</h2>
+              <span class="badge-demo"><i data-lucide="flask-conical"></i> Demo Mode</span>
+            </div>
+            <p class="view-subtitle">Simulate real-world opportunity changes in a controlled test environment. Alter mock listings, trigger agent extraction, compute diffs, and inspect match engine re-scoring in real time.</p>
           </div>
+        </div>
 
-          <div class="demo-flow-diagram">
-            <div class="flow-step">
+        <!-- 4-Step Connected Workflow Stepper -->
+        <div class="demo-flow-diagram" aria-label="End-to-End Change Pipeline Workflow">
+          <div class="flow-step">
+            <div class="flow-step-header">
               <span class="step-badge">1</span>
-              <h4>Live Mock Portal</h4>
-              <p>Simulate deadline or eligibility change on port 4000</p>
+              <span class="step-pill">Mock Source</span>
             </div>
-            <div class="flow-arrow"><i data-lucide="arrow-right"></i></div>
-            <div class="flow-step">
+            <h4>Live Mock Portal</h4>
+            <p>Simulate deadline or criteria shifts on local port 4000</p>
+          </div>
+          <div class="flow-arrow"><i data-lucide="chevron-right"></i></div>
+
+          <div class="flow-step">
+            <div class="flow-step-header">
               <span class="step-badge">2</span>
-              <h4>Extraction Agent</h4>
-              <p>Extracts structured schema with evidence quotes</p>
+              <span class="step-pill">Extraction</span>
             </div>
-            <div class="flow-arrow"><i data-lucide="arrow-right"></i></div>
-            <div class="flow-step">
+            <h4>Extraction Agent</h4>
+            <p>Captures structured schema with verbatim evidence quotes</p>
+          </div>
+          <div class="flow-arrow"><i data-lucide="chevron-right"></i></div>
+
+          <div class="flow-step">
+            <div class="flow-step-header">
               <span class="step-badge">3</span>
-              <h4>Change Engine</h4>
-              <p>Diffs snapshots & filters cosmetic noise</p>
+              <span class="step-pill">Diff Engine</span>
             </div>
-            <div class="flow-arrow"><i data-lucide="arrow-right"></i></div>
-            <div class="flow-step">
+            <h4>Change Engine</h4>
+            <p>Diffs snapshots, filters cosmetic noise, and classifies severity</p>
+          </div>
+          <div class="flow-arrow"><i data-lucide="chevron-right"></i></div>
+
+          <div class="flow-step">
+            <div class="flow-step-header">
               <span class="step-badge">4</span>
-              <h4>Radar Matcher</h4>
-              <p>Re-scores student fit & pushes instant alert</p>
+              <span class="step-pill">Matching</span>
             </div>
+            <h4>Radar Matcher</h4>
+            <p>Re-scores student fit reasons and dispatches change alerts</p>
+          </div>
+        </div>
+
+        <!-- Four Action Cards Grid -->
+        <div class="sandbox-actions-grid">
+          <!-- Card 1: Scenario A -->
+          <div class="sandbox-action-card card-scenario-a">
+            <div class="action-card-top">
+              <span class="action-icon action-icon-blue"><i data-lucide="calendar"></i></span>
+              <span class="action-card-badge badge-blue">Scenario A</span>
+            </div>
+            <div class="action-content">
+              <h4>Deadline Extension</h4>
+              <p>Extend Apex National Innovation Hackathon deadline by +30 days in the mock portal.</p>
+              <div class="action-impact-note">
+                <i data-lucide="clock"></i>
+                <span>Triggers <strong>DEADLINE_CHANGED</strong> event &amp; shifts deadline badge</span>
+              </div>
+            </div>
+            <button class="btn btn-secondary action-card-btn" id="demo-deadline-btn">
+              <i data-lucide="calendar-plus"></i>
+              <span>Trigger Deadline Extension</span>
+            </button>
           </div>
 
-          <div class="sandbox-actions-grid">
-            <div class="sandbox-action-card">
-              <div class="action-header">
-                <span class="action-icon"><i data-lucide="calendar"></i></span>
-                <div>
-                  <h4>Scenario A: Deadline Extension</h4>
-                  <p>Extend Apex National Innovation Hackathon deadline by 30 days</p>
-                </div>
-              </div>
-              <button class="btn btn-secondary" id="demo-deadline-btn">
-                Trigger Deadline Extension
-              </button>
+          <!-- Card 2: Scenario B -->
+          <div class="sandbox-action-card card-scenario-b">
+            <div class="action-card-top">
+              <span class="action-icon action-icon-amber"><i data-lucide="alert-triangle"></i></span>
+              <span class="action-card-badge badge-amber">Scenario B</span>
             </div>
-
-            <div class="sandbox-action-card">
-              <div class="action-header">
-                <span class="action-icon"><i data-lucide="alert-triangle"></i></span>
-                <div>
-                  <h4>Scenario B: Eligibility Restriction</h4>
-                  <p>Change Apex Hackathon to "Final Year students only" (Causes pre-final students to become ineligible)</p>
-                </div>
+            <div class="action-content">
+              <h4>Eligibility Restriction</h4>
+              <p>Restrict Apex Hackathon to "Final Year students only", causing pre-final students to become ineligible.</p>
+              <div class="action-impact-note">
+                <i data-lucide="shield-alert"></i>
+                <span>Triggers <strong>ELIGIBILITY_CHANGED</strong> &amp; re-scores student profile fit</span>
               </div>
-              <button class="btn btn-secondary" id="demo-eligibility-btn">
-                Trigger Eligibility Change
-              </button>
             </div>
-
-            <div class="sandbox-action-card">
-              <div class="action-header">
-                <span class="action-icon"><i data-lucide="radar"></i></span>
-                <div>
-                  <h4>Execute Agent Scrape Now</h4>
-                  <p>Forces worker/API to immediately run snapshot cycle</p>
-                </div>
-              </div>
-              <button class="btn btn-primary" id="demo-scrape-btn">
-                Run Scrape & Change Diff
-              </button>
-            </div>
-
-            <div class="sandbox-action-card">
-              <div class="action-header">
-                <span class="action-icon"><i data-lucide="rotate-ccw"></i></span>
-                <div>
-                  <h4>Reset Demo State</h4>
-                  <p>Restore mock listings to baseline state</p>
-                </div>
-              </div>
-              <button class="btn btn-secondary" id="demo-reset-btn">
-                Reset Mock Portal
-              </button>
-            </div>
+            <button class="btn btn-secondary action-card-btn" id="demo-eligibility-btn">
+              <i data-lucide="user-x"></i>
+              <span>Trigger Eligibility Change</span>
+            </button>
           </div>
 
-          <!-- Live Log Console -->
-          <div class="sandbox-console">
-            <div class="console-header">
-              <span class="console-title">Live Execution Console & Agent Audit Trail</span>
-              <button class="btn-text" id="clear-console-btn">Clear</button>
+          <!-- Card 3: Execute Agent Scrape (Primary Action) -->
+          <div class="sandbox-action-card card-primary-action">
+            <div class="action-card-top">
+              <span class="action-icon action-icon-green"><i data-lucide="radar"></i></span>
+              <span class="action-card-badge badge-green">Core Pipeline</span>
             </div>
-            <div id="sandbox-logs" class="console-output">
-              <div class="log-line log-info">[System] OpportunityRadar Sandbox Initialized.</div>
-              <div class="log-line log-info">[Health] System services online and monitored.</div>
-              <div class="log-line log-info">[Agent] Agent client initialized with schema extraction hooks.</div>
+            <div class="action-content">
+              <h4>Execute Agent Scrape Now</h4>
+              <p>Forces autonomous crawler &amp; API to run an immediate snapshot extraction cycle across portals.</p>
+              <div class="action-impact-note">
+                <i data-lucide="cpu"></i>
+                <span>Polls sources, computes diffs, and updates feed live</span>
+              </div>
             </div>
+            <button class="btn btn-primary action-card-btn primary-action-btn" id="demo-scrape-btn">
+              <i data-lucide="play"></i>
+              <span>Run Scrape &amp; Change Diff</span>
+            </button>
+          </div>
+
+          <!-- Card 4: Reset Demo State (Destructive Action) -->
+          <div class="sandbox-action-card card-reset-action">
+            <div class="action-card-top">
+              <span class="action-icon action-icon-red"><i data-lucide="rotate-ccw"></i></span>
+              <span class="action-card-badge badge-red">Reset Baseline</span>
+            </div>
+            <div class="action-content">
+              <h4>Reset Demo State</h4>
+              <p>Restore mock listings, deadlines, and eligibility criteria back to default seed configuration.</p>
+              <div class="action-impact-note">
+                <i data-lucide="refresh-cw"></i>
+                <span>Clears simulated shifts and restores baseline mock state</span>
+              </div>
+            </div>
+            <button class="btn btn-danger-outline action-card-btn" id="demo-reset-btn">
+              <i data-lucide="rotate-ccw"></i>
+              <span>Reset Mock Portal</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Redesigned Developer Terminal Console -->
+        <div class="sandbox-console">
+          <div class="console-header">
+            <div class="console-header-left">
+              <div class="terminal-dots">
+                <span class="terminal-dot dot-red"></span>
+                <span class="terminal-dot dot-yellow"></span>
+                <span class="terminal-dot dot-green"></span>
+              </div>
+              <span class="console-title">Live Execution Console &amp; Agent Audit Trail</span>
+              <span class="console-live-badge"><span class="pulse-dot-green"></span> Live</span>
+            </div>
+            <button class="console-clear-btn" id="clear-console-btn" title="Clear console output">
+              <i data-lucide="trash-2"></i>
+              <span>Clear Console</span>
+            </button>
+          </div>
+          <div id="sandbox-logs" class="console-output" role="log" aria-live="polite">
+            <div class="log-line log-info"><span class="log-timestamp">01:00:00</span> <span class="log-badge log-badge-info">SYSTEM</span> <span class="log-msg">OpportunityRadar Sandbox Initialized.</span></div>
+            <div class="log-line log-success"><span class="log-timestamp">01:00:01</span> <span class="log-badge log-badge-success">HEALTH</span> <span class="log-msg">System services online and monitored.</span></div>
+            <div class="log-line log-info"><span class="log-timestamp">01:00:02</span> <span class="log-badge log-badge-info">AGENT</span> <span class="log-msg">Agent client initialized with schema extraction hooks.</span></div>
           </div>
         </div>
       </section>
