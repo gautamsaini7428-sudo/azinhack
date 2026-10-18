@@ -235,34 +235,623 @@ function navigate(path, replace = false) {
   }
   renderRoute();
 }
+window.navigate = navigate;
+
+// ── Landing Page Controller ────────────────────────────────────────────────
+let landingOpportunities = [];
+let landingFilterType = 'all';
+let landingInitialized = false;
+
+function wireLandingEventListeners() {
+  if (landingInitialized) return;
+  landingInitialized = true;
+
+  // Navigation actions
+  document.getElementById('landing-login-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigate('/login');
+  });
+
+  document.getElementById('landing-get-started-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigate('/signup');
+  });
+
+  document.getElementById('hero-cta-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigate('/signup');
+  });
+
+  document.getElementById('final-cta-signup-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigate('/signup');
+  });
+
+  document.getElementById('final-cta-login-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigate('/login');
+  });
+
+  document.getElementById('footer-login-link')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigate('/login');
+  });
+
+  document.getElementById('footer-demo-link')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigate('/login');
+  });
+
+  document.getElementById('explore-all-opps-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigate('/signup');
+  });
+
+  // Mobile menu toggle
+  const mobileToggle = document.getElementById('landing-mobile-toggle');
+  const navLinks = document.getElementById('landing-nav-links');
+  mobileToggle?.addEventListener('click', () => {
+    navLinks?.classList.toggle('mobile-open');
+  });
+
+  // Close mobile menu on link click
+  navLinks?.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => {
+      navLinks.classList.remove('mobile-open');
+    });
+  });
+
+  // Smooth scrolling for anchor links on landing page
+  document.querySelectorAll('.landing-nav-link, .landing-hero-secondary, .footer-links-col a[href^="#"]').forEach((anchor) => {
+    anchor.addEventListener('click', (e) => {
+      const href = anchor.getAttribute('href');
+      if (href && href.startsWith('#')) {
+        e.preventDefault();
+        const targetEl = document.querySelector(href);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    });
+  });
+
+  // "See How It Works" button in Hero
+  document.getElementById('hero-see-how-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    scrollToProgress(0.35);
+  });
+
+  // "Skip to page" button
+  document.getElementById('stage-skip-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const track = document.getElementById('cinematic-radar-experience');
+    if (track) {
+      const targetY = track.offsetTop + track.offsetHeight;
+      window.scrollTo({ top: targetY, behavior: 'smooth' });
+    }
+  });
+
+  // Stage nav pill clicks
+  document.querySelectorAll('.stage-nav-pill').forEach((pill) => {
+    pill.addEventListener('click', () => {
+      const targetP = parseFloat(pill.getAttribute('data-progress') || '0');
+      scrollToProgress(targetP);
+    });
+  });
+
+  // Filter chips in opportunities section
+  document.querySelectorAll('.landing-filter-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.landing-filter-chip').forEach((c) => c.classList.remove('active'));
+      chip.classList.add('active');
+      landingFilterType = chip.getAttribute('data-type') || 'all';
+      renderLandingOpportunities(landingFilterType);
+    });
+  });
+}
+
+function scrollToProgress(targetP) {
+  const track = document.getElementById('cinematic-radar-experience');
+  if (!track) return;
+  const totalScroll = track.offsetHeight - window.innerHeight;
+  const targetY = track.offsetTop + targetP * totalScroll;
+  window.scrollTo({ top: targetY, behavior: 'smooth' });
+}
+
+// ── Cinematic Scroll Controller ────────────────────────────────────────────
+let cinematicScrollBound = false;
+let scrollTicking = false;
+
+function initCinematicScroll() {
+  if (cinematicScrollBound) {
+    updateCinematicScroll();
+    return;
+  }
+  cinematicScrollBound = true;
+
+  window.addEventListener('scroll', () => {
+    if (!scrollTicking) {
+      requestAnimationFrame(() => {
+        updateCinematicScroll();
+        scrollTicking = false;
+      });
+      scrollTicking = true;
+    }
+  }, { passive: true });
+
+  window.addEventListener('resize', () => {
+    updateCinematicScroll();
+  }, { passive: true });
+
+  // Initial pass
+  updateCinematicScroll();
+}
+
+function updateCinematicScroll() {
+  const track = document.getElementById('cinematic-radar-experience');
+  if (!track) return;
+
+  const rect = track.getBoundingClientRect();
+  const totalScroll = track.offsetHeight - window.innerHeight;
+  if (totalScroll <= 0) return;
+
+  const currentScroll = -rect.top;
+  const rawProgress = currentScroll / totalScroll;
+  const p = Math.max(0, Math.min(1, rawProgress));
+
+  // If completely offscreen, skip computation
+  if (rect.bottom < -200 || rect.top > window.innerHeight + 200) return;
+
+  const isDesktop = window.innerWidth > 1024;
+  const heroCopy = document.getElementById('stage-hero-copy');
+  const radarRig = document.getElementById('stage-radar-rig');
+  const cardLeft = document.getElementById('stage-card-left');
+  const cardCenter = document.getElementById('stage-card-center');
+  const cardRight = document.getElementById('stage-card-right');
+  const cardFaceDiscovery = document.getElementById('card-face-discovery');
+  const cardFaceMatching = document.getElementById('card-face-matching');
+  const redStrikeBar = document.getElementById('red-strike-bar');
+  const deadlineNewText = document.getElementById('deadline-new-text');
+  const timelineHud = document.getElementById('stage-timeline-hud');
+  const dialScoreNum = document.getElementById('stage-dial-score-num');
+  const ambientGlow = document.getElementById('stage-ambient-glow');
+  const viewport3D = document.getElementById('stage-3d-viewport');
+
+  // Baseline position offsets for Stage 1 radar:
+  // On desktop, radar sits in its own dedicated visual bay to the right (never overlapping text).
+  // On tablet/mobile, radar is scaled down and positioned lower, avoiding collision with text/buttons.
+  const radarBaseX = isDesktop ? Math.min(340, Math.round(window.innerWidth * 0.24)) : 0;
+  const radarBaseY = isDesktop ? 0 : 160;
+  const radarBaseScale = isDesktop ? 1.02 : 0.68;
+
+  // ── 1. Opening Scene (0.00 <= p < 0.20) ──────────────────────────────────
+  if (p < 0.20) {
+    // Stable dwell plateau from 0.00 to 0.07 where text and radar remain perfectly steady
+    const fadeT = p <= 0.07 ? 0 : Math.min(1, (p - 0.07) / (0.20 - 0.07));
+
+    if (heroCopy) {
+      heroCopy.style.opacity = Math.max(0, 1 - fadeT * 1.35).toFixed(3);
+      const ty = isDesktop ? (-40 * fadeT).toFixed(1) : (-30 * fadeT).toFixed(1);
+      heroCopy.style.transform = isDesktop
+        ? `translate3d(0, ${ty}px, 0)`
+        : `translate3d(-50%, ${ty}px, 0)`;
+      heroCopy.style.pointerEvents = fadeT > 0.4 ? 'none' : 'auto';
+    }
+
+    if (radarRig) {
+      // Glides smoothly from right bay (radarBaseX) to center (0) as scroll progresses
+      const curX = (radarBaseX * (1 - fadeT)).toFixed(1);
+      const curY = (radarBaseY * (1 - fadeT)).toFixed(1);
+      const rx = (50 + fadeT * 6).toFixed(1);
+      const rz = (-12 - fadeT * 8).toFixed(1);
+      const s = (radarBaseScale + fadeT * (1.18 - radarBaseScale)).toFixed(2);
+      radarRig.style.transform = `translate3d(${curX}px, ${curY}px, -60px) rotateX(${rx}deg) rotateZ(${rz}deg) scale3d(${s}, ${s}, 1)`;
+      radarRig.style.opacity = '1';
+    }
+
+    const signalBlips = document.getElementById('radar-signal-blips');
+    if (signalBlips) signalBlips.style.opacity = '1';
+
+    if (ambientGlow) {
+      ambientGlow.style.opacity = (0.75 + fadeT * 0.25).toFixed(2);
+      ambientGlow.style.transform = `scale(${1 + fadeT * 0.2})`;
+    }
+    if (viewport3D) viewport3D.style.transform = 'none';
+
+    // Cards initially collapsed into the central radar hub
+    if (cardLeft) {
+      cardLeft.style.opacity = '0';
+      cardLeft.style.transform = 'translate3d(0, 0, -40px) scale(0.2)';
+    }
+    if (cardCenter) {
+      cardCenter.style.opacity = '0';
+      cardCenter.style.transform = 'translate3d(0, 0, -40px) scale(0.2)';
+    }
+    if (cardRight) {
+      cardRight.style.opacity = '0';
+      cardRight.style.transform = 'translate3d(0, 0, -40px) scale(0.2)';
+    }
+    if (timelineHud) {
+      timelineHud.style.opacity = '0';
+      timelineHud.style.transform = 'translateX(30px)';
+    }
+    if (redStrikeBar) redStrikeBar.style.width = '0%';
+    if (deadlineNewText) deadlineNewText.style.opacity = '0';
+    if (cardFaceDiscovery) cardFaceDiscovery.style.opacity = '1';
+    if (cardFaceMatching) cardFaceMatching.style.opacity = '0';
+  }
+
+  // ── 2. Scroll Transition & 3D Card Eruption (0.20 <= p < 0.44) ───────────
+  else if (p < 0.44) {
+    const t = (p - 0.20) / (0.44 - 0.20);
+    if (heroCopy) {
+      heroCopy.style.opacity = '0';
+      heroCopy.style.pointerEvents = 'none';
+    }
+    if (radarRig) {
+      const rx = 56 + t * 3;
+      const rz = -20 - t * 14;
+      const s = 1.18 - t * 0.12;
+      radarRig.style.transform = `translate3d(0, 0, -80px) rotateX(${rx.toFixed(1)}deg) rotateZ(${rz.toFixed(1)}deg) scale3d(${s.toFixed(2)}, ${s.toFixed(2)}, 1)`;
+      radarRig.style.opacity = '1';
+    }
+
+    // Fade background signal blips so they never overlap or clutter the cards
+    const signalBlips = document.getElementById('radar-signal-blips');
+    if (signalBlips) {
+      const blipFade = Math.min(1, t / 0.35);
+      signalBlips.style.opacity = Math.max(0, 1 - blipFade).toFixed(2);
+    }
+
+    // Eruption completes by t = 0.50 (p = 0.32), followed by a calm dwell plateau for reading
+    const eruptT = Math.min(1, t / 0.50);
+    // Smooth sinusoidal ease-out
+    const easedT = Math.sin((eruptT * Math.PI) / 2);
+    const cardAlpha = Math.min(1, easedT * 1.5).toFixed(2);
+
+    if (cardLeft) {
+      const lx = (-260 * easedT).toFixed(1);
+      const ly = (-20 * easedT).toFixed(1);
+      const lz = (100 + 60 * easedT).toFixed(1);
+      const s = (0.35 + easedT * 0.65).toFixed(2);
+      cardLeft.style.opacity = cardAlpha;
+      cardLeft.style.transform = `translate3d(${lx}px, ${ly}px, ${lz}px) scale(${s}) rotateY(8deg)`;
+    }
+    if (cardCenter) {
+      const cy = (8 * easedT).toFixed(1);
+      const cz = (120 + 80 * easedT).toFixed(1);
+      const s = (0.4 + easedT * 0.6).toFixed(2);
+      cardCenter.style.opacity = cardAlpha;
+      cardCenter.style.transform = `translate3d(0px, ${cy}px, ${cz}px) scale(${s})`;
+    }
+    if (cardRight) {
+      const rx = (260 * easedT).toFixed(1);
+      const ry = (-30 * easedT).toFixed(1);
+      const rz = (100 + 50 * easedT).toFixed(1);
+      const s = (0.35 + easedT * 0.65).toFixed(2);
+      cardRight.style.opacity = cardAlpha;
+      cardRight.style.transform = `translate3d(${rx}px, ${ry}px, ${rz}px) scale(${s}) rotateY(-8deg)`;
+    }
+    if (cardFaceDiscovery) cardFaceDiscovery.style.opacity = '1';
+    if (cardFaceMatching) cardFaceMatching.style.opacity = '0';
+    if (redStrikeBar) redStrikeBar.style.width = '0%';
+    if (deadlineNewText) deadlineNewText.style.opacity = '0';
+    if (timelineHud) {
+      timelineHud.style.opacity = '0';
+      timelineHud.style.transform = 'translateX(30px)';
+    }
+  }
+
+  // ── 3. Change Detection Spotlight (0.44 <= p < 0.68) ─────────────────────
+  else if (p < 0.68) {
+    const t = (p - 0.44) / (0.68 - 0.44);
+    if (heroCopy) heroCopy.style.opacity = '0';
+
+    if (radarRig) {
+      radarRig.style.transform = `translate3d(0, 0, -80px) rotateX(59deg) rotateZ(-34deg) scale3d(1.06, 1.06, 1)`;
+    }
+
+    const signalBlips = document.getElementById('radar-signal-blips');
+    if (signalBlips) signalBlips.style.opacity = '0';
+
+    // Left & Right cards fade gently to background depth
+    const fadeAlpha = Math.max(0.08, 1 - t * 1.8).toFixed(2);
+    const fadeScale = (1 - t * 0.15).toFixed(2);
+    if (cardLeft) {
+      cardLeft.style.opacity = fadeAlpha;
+      cardLeft.style.transform = `translate3d(-260px, -20px, 120px) scale(${fadeScale}) rotateY(12deg)`;
+    }
+    if (cardRight) {
+      cardRight.style.opacity = fadeAlpha;
+      cardRight.style.transform = `translate3d(260px, -30px, 110px) scale(${fadeScale}) rotateY(-12deg)`;
+    }
+
+    // Center Card magnifies forward into spotlight with generous positive Z clearance over the tilted radar
+    const focusT = Math.min(1, t / 0.35);
+    if (cardCenter) {
+      const s = (1 + focusT * 0.04).toFixed(3);
+      const cz = (200 + focusT * 35).toFixed(1);
+      cardCenter.style.opacity = '1';
+      cardCenter.style.transform = `translate3d(0px, 0px, ${cz}px) scale(${s})`;
+    }
+
+    // Red Strikethrough animates smoothly across old deadline
+    if (redStrikeBar) {
+      const strikeW = Math.min(100, Math.max(0, ((t - 0.28) / 0.28) * 100)).toFixed(1);
+      redStrikeBar.style.width = `${strikeW}%`;
+    }
+
+    // Reveal green new extended deadline smoothly
+    if (deadlineNewText) {
+      const newAlpha = Math.min(1, Math.max(0, (t - 0.52) / 0.26)).toFixed(2);
+      deadlineNewText.style.opacity = newAlpha;
+    }
+
+    // Slide in Timeline Alert HUD smoothly
+    if (timelineHud) {
+      const hudAlpha = Math.min(1, Math.max(0, (t - 0.48) / 0.30)).toFixed(2);
+      const hudTx = (30 * (1 - hudAlpha)).toFixed(1);
+      timelineHud.style.opacity = hudAlpha;
+      timelineHud.style.transform = `translateX(${hudTx}px)`;
+    }
+
+    if (cardFaceDiscovery) cardFaceDiscovery.style.opacity = '1';
+    if (cardFaceMatching) cardFaceMatching.style.opacity = '0';
+  }
+
+  // ── 4. Personalized Matching Scene (0.68 <= p < 0.88) ────────────────────
+  else if (p < 0.88) {
+    const t = (p - 0.68) / (0.88 - 0.68);
+    if (heroCopy) heroCopy.style.opacity = '0';
+    if (cardLeft) cardLeft.style.opacity = '0.04';
+    if (cardRight) cardRight.style.opacity = '0.04';
+
+    const signalBlips = document.getElementById('radar-signal-blips');
+    if (signalBlips) signalBlips.style.opacity = '0';
+
+    if (cardCenter) {
+      cardCenter.style.opacity = '1';
+      cardCenter.style.transform = 'translate3d(0px, 0px, 235px) scale(1.04)';
+    }
+
+    // Card face morph cross-fade completes by t = 0.40
+    if (cardFaceDiscovery) cardFaceDiscovery.style.opacity = Math.max(0, 1 - t * 2.5).toFixed(2);
+    if (cardFaceMatching) {
+      cardFaceMatching.style.opacity = Math.min(1, t * 2.5).toFixed(2);
+      cardFaceMatching.style.pointerEvents = t > 0.4 ? 'auto' : 'none';
+    }
+
+    // Dial match score smoothly from 0 to 98%
+    if (dialScoreNum) {
+      const dialT = Math.min(1, Math.max(0, (t - 0.15) / 0.55));
+      const score = Math.min(98, Math.round(dialT * 98));
+      dialScoreNum.textContent = `${score}%`;
+    }
+
+    if (timelineHud) {
+      timelineHud.style.opacity = Math.max(0, 1 - t * 2.2).toFixed(2);
+    }
+  }
+
+  // ── 5. Camera Pull-back & Content Hand-off (0.88 <= p <= 1.00) ───────────
+  else {
+    const t = (p - 0.88) / (1.00 - 0.88);
+    if (heroCopy) heroCopy.style.opacity = '0';
+    if (cardLeft) cardLeft.style.opacity = '0';
+    if (cardRight) cardRight.style.opacity = '0';
+
+    if (cardCenter) {
+      const s = Math.max(0.6, 1.04 - t * 0.44).toFixed(3);
+      const ty = (-40 * t).toFixed(1);
+      const cz = Math.max(60, 235 - t * 175).toFixed(1);
+      const alpha = Math.max(0, 1 - t * 1.15).toFixed(2);
+      cardCenter.style.opacity = alpha;
+      cardCenter.style.transform = `translate3d(0px, ${ty}px, ${cz}px) scale(${s})`;
+    }
+
+    if (radarRig) {
+      radarRig.style.opacity = Math.max(0, 1 - t * 1.2).toFixed(2);
+    }
+
+    if (viewport3D) {
+      const s = (1 - t * 0.22).toFixed(3);
+      viewport3D.style.transform = `scale3d(${s}, ${s}, 1)`;
+    }
+  }
+
+  updateStageNavIndicator(p);
+}
+
+function updateStageNavIndicator(p) {
+  let activeIndex = 1;
+  if (p < 0.20) activeIndex = 1;
+  else if (p < 0.44) activeIndex = 2;
+  else if (p < 0.68) activeIndex = 3;
+  else if (p < 0.88) activeIndex = 4;
+  else activeIndex = 5;
+
+  for (let i = 1; i <= 5; i++) {
+    const pill = document.getElementById(`nav-step-${i}`);
+    if (pill) {
+      pill.classList.toggle('active', i === activeIndex);
+    }
+  }
+}
+
+function renderLandingOpportunities(filterType = 'all') {
+  const container = document.getElementById('landing-opps-container');
+  const countLabel = document.getElementById('landing-opps-count-label');
+  if (!container) return;
+
+  const items = landingOpportunities.filter((opp) => {
+    const type = (opp.opp_type || opp.type || '').toLowerCase();
+    if (filterType === 'all') return true;
+    return type === filterType.toLowerCase();
+  });
+
+  if (countLabel) {
+    countLabel.textContent = `${items.length} verified listings indexed`;
+  }
+
+  if (items.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; background: #FFFFFF; border: 1px solid #E2DDD0; border-radius: 10px;">
+        <p style="color: #57564F; font-size: 0.95rem;">No ${escapeHtml(filterType)} listings currently in cache. Check back shortly!</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Display top 6 opportunities cleanly
+  const displayItems = items.slice(0, 6);
+
+  container.innerHTML = displayItems.map((opp) => {
+    const oppType = (opp.opp_type || opp.type || 'Opportunity').toLowerCase();
+    const typeBadgeClass = oppType === 'internship' ? 'badge-intern' : oppType === 'hackathon' ? 'badge-hack' : 'badge-schol';
+    const typeLabel = oppType.charAt(0).toUpperCase() + oppType.slice(1);
+    const organizer = opp.organizer || opp.organization || 'Accredited Host';
+    const sourceLabel = opp.source_label || opp.label || 'Official University Portal';
+    const rewardVal = opp.reward || opp.stipend || (oppType === 'internship' ? 'Competitive Stipend' : oppType === 'hackathon' ? 'Prize Pool & Mentorship' : 'Merit Grant');
+    const description = opp.eligibility || opp.description || 'Autonomous verification confirmed requirements and official portal link.';
+
+    // Format deadline
+    let deadlineStr = 'Rolling Deadline';
+    let isUrgent = false;
+    if (opp.deadline) {
+      try {
+        const d = new Date(opp.deadline);
+        if (!isNaN(d.getTime())) {
+          deadlineStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const diffDays = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          if (diffDays >= 0 && diffDays <= 7) {
+            isUrgent = true;
+          }
+        }
+      } catch {}
+    }
+
+    // Deterministic match fit indicator
+    const pseudoScore = 88 + (Math.abs(typeof opp.id === 'string' ? opp.id.charCodeAt(opp.id.length - 1) * 7 : (opp.id || 1) * 7) % 11);
+    const scoreClass = pseudoScore >= 90 ? 'match-high' : 'match-med';
+
+    return `
+      <article class="landing-opp-card">
+        <div class="landing-opp-card-top">
+          <span class="landing-opp-badge ${typeBadgeClass}">${escapeHtml(typeLabel)}</span>
+          <span class="landing-opp-match-pill ${scoreClass}">
+            <i data-lucide="sparkles" style="width: 12px; height: 12px;"></i>
+            <span>${pseudoScore}% Fit</span>
+          </span>
+        </div>
+        <h3 class="landing-opp-title">${escapeHtml(opp.title || 'Untitled Opportunity')}</h3>
+        <p class="landing-opp-org">${escapeHtml(organizer)}</p>
+        
+        <div class="landing-opp-meta-row">
+          <span class="landing-opp-meta-item">
+            <i data-lucide="award"></i>
+            <span>${escapeHtml(rewardVal)}</span>
+          </span>
+          <span class="landing-opp-meta-item" style="${isUrgent ? 'color: #C4572F; font-weight: 600;' : ''}">
+            <i data-lucide="clock"></i>
+            <span>${escapeHtml(deadlineStr)}</span>
+          </span>
+        </div>
+
+        <p class="landing-opp-match-desc">
+          ${escapeHtml(description.length > 125 ? description.slice(0, 125) + '...' : description)}
+        </p>
+
+        <div class="landing-opp-footer">
+          <span class="landing-opp-source-label">
+            <i data-lucide="shield-check"></i>
+            <span>${escapeHtml(sourceLabel)}</span>
+          </span>
+          <button class="btn btn-ghost landing-card-view-btn" data-opp-id="${opp.id}" style="padding: 0.25rem 0.65rem; font-size: 0.78rem; font-weight: 600; color: #1F4D3A;">
+            <span>View Fit</span>
+            <i data-lucide="arrow-right" style="width: 12px; height: 12px; margin-left: 2px;"></i>
+          </button>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  // Wire view fit buttons to route to login
+  container.querySelectorAll('.landing-card-view-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      navigate('/login');
+    });
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+async function initLandingPage() {
+  wireLandingEventListeners();
+  initCinematicScroll();
+
+  // Load real opportunities if empty
+  if (landingOpportunities.length === 0) {
+    try {
+      const res = await fetch(`${API_URL}/api/opportunities`);
+      if (res.ok) {
+        const data = await res.json();
+        landingOpportunities = Array.isArray(data) ? data : (data.opportunities || []);
+        
+        // Sync real opportunity details into the center stage card if found
+        const opp2 = landingOpportunities.find(o => o.id === 'opp-002') || landingOpportunities[0];
+        if (opp2) {
+          const titleEl = document.getElementById('stage-card-title');
+          if (titleEl && opp2.title) titleEl.textContent = opp2.title;
+        }
+      }
+    } catch (err) {
+      console.warn('[Landing] Could not fetch real opportunities:', err);
+    }
+  }
+
+  renderLandingOpportunities(landingFilterType);
+  if (window.lucide) window.lucide.createIcons();
+}
+
 
 async function renderRoute() {
   const path = window.location.pathname;
+  const viewLanding = document.getElementById('view-landing');
   const viewAuth = document.getElementById('view-auth');
   const viewOnboard = document.getElementById('view-onboarding');
   const viewDash = document.getElementById('view-dashboard');
 
   if (!state.user) {
-    // Unauthenticated: protect every route except login, signup, forgot-password
-    if (path !== '/login' && path !== '/signup' && path !== '/forgot-password') {
+    // Unauthenticated: '/' or '' renders public landing page
+    if (path === '/' || path === '') {
+      if (viewDash) viewDash.style.display = 'none';
+      if (viewOnboard) viewOnboard.style.display = 'none';
+      if (viewAuth) viewAuth.style.display = 'none';
+      if (viewLanding) viewLanding.style.display = 'block';
+
+      await initLandingPage();
+    } else if (path === '/login' || path === '/signup' || path === '/forgot-password') {
+      if (viewLanding) viewLanding.style.display = 'none';
+      if (viewDash) viewDash.style.display = 'none';
+      if (viewOnboard) viewOnboard.style.display = 'none';
+      if (viewAuth) viewAuth.style.display = 'flex';
+
+      if (path === '/signup') {
+        setAuthMode('signup');
+      } else if (path === '/forgot-password') {
+        setAuthMode('forgot');
+      } else {
+        setAuthMode('login');
+      }
+
+      await loadProviders();
+    } else {
       return navigate('/login', true);
     }
-
-    if (viewDash) viewDash.style.display = 'none';
-    if (viewOnboard) viewOnboard.style.display = 'none';
-    if (viewAuth) viewAuth.style.display = 'flex';
-
-    if (path === '/signup') {
-      setAuthMode('signup');
-    } else if (path === '/forgot-password') {
-      setAuthMode('forgot');
-    } else {
-      setAuthMode('login');
-    }
-
-    await loadProviders();
   } else {
     // Authenticated user
+    if (viewLanding) viewLanding.style.display = 'none';
+
     if (path === '/login' || path === '/signup' || path === '/forgot-password') {
       if (!state.user.onboarding_completed) {
         return navigate('/onboarding', true);

@@ -13,6 +13,765 @@
 </head>
 <body>
   <div id="app">
+    <!-- ── Public Landing Page View (/) ── -->
+    <div id="view-landing" class="landing-page-view" style="display: none;">
+      <!-- Sticky Public Header -->
+      <header class="landing-navbar">
+        <div class="landing-navbar-container">
+          <a href="/" class="landing-brand" id="landing-brand-link" aria-label="OpportunityRadar Home">
+            <div class="radar-mark" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 2a10 10 0 0 1 10 10"></path>
+                <path d="M12 6a6 6 0 0 1 6 6"></path>
+                <circle cx="12" cy="12" r="2.2" fill="currentColor"></circle>
+              </svg>
+            </div>
+            <span class="landing-brand-text">OpportunityRadar</span>
+            <span class="landing-brand-pill">Public Radar</span>
+          </a>
+
+          <nav class="landing-nav-links" id="landing-nav-links" aria-label="Public navigation">
+            <a href="#landing-features" class="landing-nav-link">Features</a>
+            <a href="#landing-how-it-works" class="landing-nav-link">How It Works</a>
+            <a href="#landing-opportunities" class="landing-nav-link">Opportunities</a>
+            <a href="#landing-changes" class="landing-nav-link">Change Detection</a>
+            <a href="#landing-sources" class="landing-nav-link">Monitored Sources</a>
+            <a href="#landing-matching" class="landing-nav-link">For Students</a>
+          </nav>
+
+          <div class="landing-auth-actions">
+            <button class="btn btn-ghost landing-login-btn" id="landing-login-btn">Log in</button>
+            <button class="btn btn-primary landing-cta-btn" id="landing-get-started-btn">
+              <span>Get Started</span>
+              <i data-lucide="arrow-right"></i>
+            </button>
+            <button class="landing-mobile-menu-btn" id="landing-mobile-toggle" aria-label="Toggle Navigation Menu">
+              <i data-lucide="menu"></i>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- ── 1. Cinematic Scroll-Driven Hero Radar Experience ── -->
+      <section id="cinematic-radar-experience" class="cinematic-radar-track">
+        <div class="cinematic-sticky-stage" id="cinematic-sticky-stage">
+          <!-- Ambient Lighting Aura -->
+          <div class="stage-ambient-glow" id="stage-ambient-glow"></div>
+
+          <!-- Scene 1: Initial Hero Copy Overlay -->
+          <div class="stage-hero-copy-wrap" id="stage-hero-copy">
+            <div class="landing-hero-badge">
+              <span class="pulse-dot"></span>
+              <span>Autonomous Opportunity Intelligence for Students</span>
+            </div>
+            <h1 class="landing-hero-title">
+              Never Miss an <span class="landing-gradient-text">Opportunity</span>
+            </h1>
+            <p class="landing-hero-subtitle">
+              Autonomous agents crawl university portals, hackathon aggregators, and scholarship databases around the clock. Catch silent deadline extensions, detect stealth criteria updates, and verify matches against your student profile.
+            </p>
+            <div class="landing-hero-actions">
+              <button class="btn btn-primary btn-lg landing-hero-cta" id="hero-cta-btn">
+                <i data-lucide="sparkles"></i>
+                <span>Get Started for Free</span>
+                <i data-lucide="arrow-right"></i>
+              </button>
+              <button class="btn btn-secondary btn-lg landing-hero-secondary" id="hero-see-how-btn">
+                <i data-lucide="play-circle"></i>
+                <span>See How It Works</span>
+              </button>
+            </div>
+            <div class="landing-hero-trust-row">
+              <div class="trust-item"><i data-lucide="check-circle-2"></i> <span>100% Free for Students</span></div>
+              <div class="trust-item"><i data-lucide="shield-check"></i> <span>Verbatim Official Evidence</span></div>
+              <div class="trust-item"><i data-lucide="zap"></i> <span>Zero Hallucinations</span></div>
+            </div>
+            <div class="stage-scroll-hint" id="stage-scroll-hint">
+              <span class="mouse-icon"><span class="mouse-wheel"></span></span>
+              <span>Scroll down to run radar crawl &amp; change sequence</span>
+            </div>
+          </div>
+
+          <!-- Pinned 3D Camera & Radar Scene Viewport -->
+          <div class="stage-3d-viewport" id="stage-3d-viewport">
+            <!-- 3D Dimensional Emerald Radar -->
+            <div class="stage-radar-rig" id="stage-radar-rig">
+              <div class="radar-dimensional-base stage-radar-base" id="stage-radar-base">
+                <div class="radar-ring ring-outer"></div>
+                <div class="radar-ring ring-mid"></div>
+                <div class="radar-ring ring-inner"></div>
+                <div class="radar-axis axis-h"></div>
+                <div class="radar-axis axis-v"></div>
+                <div class="radar-sweep-beam stage-sweep-beam"></div>
+                <div class="radar-center-hub stage-hub">
+                  <div class="hub-pulse"></div>
+                  <i data-lucide="radar"></i>
+                </div>
+              </div>
+
+              <!-- Orbiting Radar Signal Blips -->
+              <div class="radar-signal-blips" id="radar-signal-blips">
+                <div class="signal-blip blip-1" style="top: 18%; left: 24%;"><span class="blip-dot"></span><span class="blip-label">GSoC $3k</span></div>
+                <div class="signal-blip blip-2" style="top: 24%; left: 74%;"><span class="blip-dot"></span><span class="blip-label">Apex Hack ₹5L</span></div>
+                <div class="signal-blip blip-3" style="top: 72%; left: 22%;"><span class="blip-dot"></span><span class="blip-label">Birla STEM ₹2L</span></div>
+                <div class="signal-blip blip-4" style="top: 78%; left: 68%;"><span class="blip-dot"></span><span class="blip-label">MLH Fellowship</span></div>
+                <div class="signal-blip blip-5" style="top: 50%; left: 88%;"><span class="blip-dot"></span><span class="blip-label">Stanford AI</span></div>
+              </div>
+            </div>
+
+            <!-- Erupting Floating Cards Group in 3D Space -->
+            <div class="stage-cards-group" id="stage-cards-group">
+              <!-- Card 1 (Left): GSoC Internship -->
+              <div class="stage-opp-card card-left" id="stage-card-left">
+                <div class="float-card-header">
+                  <span class="float-badge badge-intern">Internship</span>
+                  <span class="float-match-pill"><i data-lucide="check"></i> 98% Match</span>
+                </div>
+                <h4 class="float-card-title">Google Summer of Code 2026</h4>
+                <p class="float-card-meta"><i data-lucide="banknote"></i> $3,000 Stipend • Python, ML</p>
+                <div class="float-card-footer">
+                  <span class="float-source"><i data-lucide="shield-check"></i> Official Portal</span>
+                  <span class="float-status-dot active">Verified</span>
+                </div>
+              </div>
+
+              <!-- Card 2 (Center - Hero Card): Apex National Innovation Hackathon -->
+              <div class="stage-opp-card card-center" id="stage-card-center">
+                <!-- Inner Morph Wrapper -->
+                <div class="card-morph-wrap" id="card-morph-wrap">
+                  <!-- Face A: Opportunity Details & Change Diff -->
+                  <div class="card-face card-face-discovery" id="card-face-discovery">
+                    <div class="stage-card-top-row">
+                      <span class="float-badge badge-hack">Hackathon Alert</span>
+                      <span class="diff-event-pill" id="stage-diff-event-pill">
+                        <span class="pulse-dot-red"></span>
+                        <span id="stage-diff-pill-text">Portal Update Detected</span>
+                      </span>
+                    </div>
+
+                    <h3 class="stage-card-title" id="stage-card-title">Apex National Innovation Hackathon</h3>
+                    <p class="stage-card-org">Apex Innovation Foundation • National Tech Registry</p>
+
+                    <div class="stage-reward-strip">
+                      <span class="reward-item"><i data-lucide="award"></i> ₹5,00,000 Prize Pool</span>
+                      <span class="reward-item"><i data-lucide="users"></i> Teams of 2–4</span>
+                    </div>
+
+                    <!-- Morphing Deadline Section with Red Strikethrough & Green Reveal -->
+                    <div class="stage-deadline-box" id="stage-deadline-box">
+                      <div class="deadline-row">
+                        <span class="deadline-label">Official Portal Deadline:</span>
+                        <div class="deadline-values-wrap">
+                          <span class="deadline-old-wrap" id="deadline-old-wrap">
+                            <span class="deadline-old-text" id="deadline-old-text">October 15, 2026</span>
+                            <span class="red-strike-bar" id="red-strike-bar"></span>
+                          </span>
+                          <span class="deadline-shift-arrow" id="deadline-shift-arrow">→</span>
+                          <span class="deadline-new-text" id="deadline-new-text">
+                            November 15, 2026
+                            <span class="extension-tag">+30 Days Extension</span>
+                          </span>
+                        </div>
+                      </div>
+                      <div class="deadline-evidence-quote" id="stage-deadline-quote">
+                        <i data-lucide="quote"></i>
+                        <p>“Submission window officially extended by 30 days due to university midterm exam schedules. Late submissions accepted.”</p>
+                      </div>
+                    </div>
+
+                    <!-- Change Signal Beam connection -->
+                    <div class="stage-signal-transmission" id="stage-signal-transmission">
+                      <div class="signal-beam-line"></div>
+                      <span class="signal-tag"><i data-lucide="radio"></i> Signal Dispatched to 1,240 Watchers</span>
+                    </div>
+                  </div>
+
+                  <!-- Face B: Student-Fit Profile & Transparent Match Breakdown -->
+                  <div class="card-face card-face-matching" id="card-face-matching">
+                    <div class="stage-match-top-row">
+                      <div class="match-student-avatar">PS</div>
+                      <div class="match-student-info">
+                        <h4>Priya Sharma</h4>
+                        <p>3rd Year (Pre-final) • Computer Science • IIT Bombay</p>
+                      </div>
+                      <div class="match-dial-pill" id="stage-match-dial-pill">
+                        <span class="dial-score-num" id="stage-dial-score-num">98%</span>
+                        <span class="dial-score-lbl">Strong Fit</span>
+                      </div>
+                    </div>
+
+                    <!-- Skill Matching Beam Connectors -->
+                    <div class="stage-skills-matching-grid">
+                      <div class="skill-match-row confirmed">
+                        <div class="skill-name-col">
+                          <i data-lucide="check-circle-2"></i>
+                          <span>Python &amp; ML</span>
+                        </div>
+                        <div class="skill-connector-beam"></div>
+                        <div class="skill-req-col">Matches Hackathon AI Track</div>
+                      </div>
+                      <div class="skill-match-row confirmed">
+                        <div class="skill-name-col">
+                          <i data-lucide="check-circle-2"></i>
+                          <span>3rd Year (Pre-final)</span>
+                        </div>
+                        <div class="skill-connector-beam"></div>
+                        <div class="skill-req-col">Full Eligibility Confirmed</div>
+                      </div>
+                      <div class="skill-match-row confirmed">
+                        <div class="skill-name-col">
+                          <i data-lucide="check-circle-2"></i>
+                          <span>Computer Science</span>
+                        </div>
+                        <div class="skill-connector-beam"></div>
+                        <div class="skill-req-col">Eligible Academic Branch</div>
+                      </div>
+                    </div>
+
+                    <!-- Grounded Evidence Box -->
+                    <div class="stage-match-evidence-box">
+                      <div class="evidence-header">
+                        <i data-lucide="shield-check"></i>
+                        <span>Official Portal Evidence Verified</span>
+                      </div>
+                      <p>“Open to 3rd &amp; 4th year undergraduate engineering students across India. Extracted from rules PDF on apexinnovate.org.”</p>
+                      <div class="evidence-footer">
+                        <span>Zero Hallucinations</span>
+                        <span>Last checked: 2 min ago</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 3 (Right): Aditya Birla Fellowship -->
+              <div class="stage-opp-card card-right" id="stage-card-right">
+                <div class="float-card-header">
+                  <span class="float-badge badge-schol">Scholarship</span>
+                  <span class="float-closing-pill"><i data-lucide="clock"></i> 3 Days Left</span>
+                </div>
+                <h4 class="float-card-title">Aditya Birla National Fellowship</h4>
+                <p class="float-card-meta"><i data-lucide="graduation-cap"></i> ₹2,00,000/yr • Pre-final &amp; Final</p>
+                <div class="float-card-footer">
+                  <span class="float-source"><i data-lucide="user-check"></i> Criteria Confirmed</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Side Timeline & Notification HUD -->
+            <div class="stage-timeline-hud" id="stage-timeline-hud">
+              <div class="hud-header">
+                <span class="pulse-dot"></span>
+                <span>Live Change Feed</span>
+              </div>
+              <div class="hud-item">
+                <div class="hud-item-time">10:42 AM</div>
+                <div class="hud-item-badge badge-deadline">DEADLINE EXTENDED</div>
+                <div class="hud-item-title">Apex Hackathon</div>
+                <div class="hud-item-diff">+30 Days Extension</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Cinematic Stage Controller HUD -->
+          <div class="cinematic-nav-hud" id="cinematic-nav-hud">
+            <button class="stage-nav-pill active" data-progress="0.04" id="nav-step-1">
+              <span class="step-dot"></span>
+              <span class="step-text">01 Radar</span>
+            </button>
+            <button class="stage-nav-pill" data-progress="0.36" id="nav-step-2">
+              <span class="step-dot"></span>
+              <span class="step-text">02 Discovery</span>
+            </button>
+            <button class="stage-nav-pill" data-progress="0.65" id="nav-step-3">
+              <span class="step-dot"></span>
+              <span class="step-text">03 Change Diff</span>
+            </button>
+            <button class="stage-nav-pill" data-progress="0.84" id="nav-step-4">
+              <span class="step-dot"></span>
+              <span class="step-text">04 Fit Match</span>
+            </button>
+            <button class="stage-nav-pill" data-progress="0.98" id="nav-step-5">
+              <span class="step-dot"></span>
+              <span class="step-text">05 Explore</span>
+            </button>
+            <button class="stage-skip-btn" id="stage-skip-btn" title="Skip animation">
+              <i data-lucide="chevron-down"></i>
+              <span>Skip to page</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Trust Metrics Bar -->
+      <section class="landing-stats-bar">
+        <div class="landing-container landing-stats-grid">
+          <div class="landing-stat-item">
+            <span class="landing-stat-num">500+</span>
+            <span class="landing-stat-label">Student Opportunities Indexed</span>
+          </div>
+          <div class="landing-stat-divider"></div>
+          <div class="landing-stat-item">
+            <span class="landing-stat-num">&lt; 5 min</span>
+            <span class="landing-stat-label">Change Detection Latency</span>
+          </div>
+          <div class="landing-stat-divider"></div>
+          <div class="landing-stat-item">
+            <span class="landing-stat-num">100%</span>
+            <span class="landing-stat-label">Grounded Verbatim Quotes</span>
+          </div>
+          <div class="landing-stat-divider"></div>
+          <div class="landing-stat-item">
+            <span class="landing-stat-num">₹15+ Lakhs</span>
+            <span class="landing-stat-label">Stipends &amp; Grants Discovered</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Key Features / Highlights Section -->
+      <section id="landing-features" class="landing-section">
+        <div class="landing-container">
+          <div class="landing-section-header">
+            <span class="landing-section-badge">Platform Highlights</span>
+            <h2 class="landing-section-title">Built for Students Who Refuse to Miss Out</h2>
+            <p class="landing-section-subtitle">Aggregators post stale links. OpportunityRadar monitors live portals with autonomous AI agents and deterministic eligibility verification.</p>
+          </div>
+
+          <div class="landing-features-grid">
+            <div class="landing-feature-card">
+              <div class="feature-icon-box green">
+                <i data-lucide="radar"></i>
+              </div>
+              <h3 class="feature-title">Autonomous 24/7 Crawlers</h3>
+              <p class="feature-desc">Continuous scraping across university tech cells, hackathon boards, and corporate career pages. Zero reliance on manual submissions.</p>
+            </div>
+
+            <div class="landing-feature-card">
+              <div class="feature-icon-box amber">
+                <i data-lucide="git-compare"></i>
+              </div>
+              <h3 class="feature-title">Silent Change Detection</h3>
+              <p class="feature-desc">Detect stealth deadline extensions and subtle criteria restrictions with word-by-word diffs while ignoring cosmetic page updates.</p>
+            </div>
+
+            <div class="landing-feature-card">
+              <div class="feature-icon-box blue">
+                <i data-lucide="shield-check"></i>
+              </div>
+              <h3 class="feature-title">Verbatim Evidence Quotes</h3>
+              <p class="feature-desc">Every match and criteria rule is backed by exact extracted source quotes and official portal links. No fabricated deadlines or hallucinated perks.</p>
+            </div>
+
+            <div class="landing-feature-card">
+              <div class="feature-icon-box purple">
+                <i data-lucide="user-check"></i>
+              </div>
+              <h3 class="feature-title">Student Fit Scoring</h3>
+              <p class="feature-desc">Match your exact academic year, major branch, technical skills, and GPA against strict requirements with plain-language reasons.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. How It Works Section -->
+      <section id="landing-how-it-works" class="landing-section landing-section-alt">
+        <div class="landing-container">
+          <div class="landing-section-header">
+            <span class="landing-section-badge">How It Works</span>
+            <h2 class="landing-section-title">Four Autonomous Steps to Career Breakthroughs</h2>
+            <p class="landing-section-subtitle">No endless tab refresh or stale aggregation boards. OpportunityRadar's autonomous pipeline works quietly behind the scenes.</p>
+          </div>
+
+          <div class="landing-workflow-grid">
+            <div class="workflow-step-card">
+              <div class="workflow-card-top">
+                <span class="workflow-step-num">01</span>
+                <div class="workflow-icon-wrap green"><i data-lucide="globe"></i></div>
+              </div>
+              <h3 class="workflow-card-title">Discover Opportunities</h3>
+              <p class="workflow-card-desc">Headless autonomous crawlers index official university tech boards, hackathon aggregators, and corporate research programs continuously.</p>
+              <div class="workflow-card-footer">
+                <span class="workflow-tag">Autonomous Web Crawl</span>
+              </div>
+            </div>
+
+            <div class="workflow-step-card">
+              <div class="workflow-card-top">
+                <span class="workflow-step-num">02</span>
+                <div class="workflow-icon-wrap amber"><i data-lucide="git-compare"></i></div>
+              </div>
+              <h3 class="workflow-card-title">Track Website Changes</h3>
+              <p class="workflow-card-desc">Snapshot diffing captures quiet deadline extensions and stealth eligibility restrictions while filtering out trivial cosmetic styling updates.</p>
+              <div class="workflow-card-footer">
+                <span class="workflow-tag">Semantic Change Engine</span>
+              </div>
+            </div>
+
+            <div class="workflow-step-card">
+              <div class="workflow-card-top">
+                <span class="workflow-step-num">03</span>
+                <div class="workflow-icon-wrap blue"><i data-lucide="user-check"></i></div>
+              </div>
+              <h3 class="workflow-card-title">Match Your Profile</h3>
+              <p class="workflow-card-desc">Evaluates your major, academic year, technical skills, and GPA against strict requirements using plain-language, transparent rules.</p>
+              <div class="workflow-card-footer">
+                <span class="workflow-tag">Deterministic Student Fit</span>
+              </div>
+            </div>
+
+            <div class="workflow-step-card">
+              <div class="workflow-card-top">
+                <span class="workflow-step-num">04</span>
+                <div class="workflow-icon-wrap purple"><i data-lucide="bell"></i></div>
+              </div>
+              <h3 class="workflow-card-title">Get Real-Time Alerts</h3>
+              <p class="workflow-card-desc">Receive immediate browser alerts, export synchronized iCal events to your calendar, and apply before registration closes.</p>
+              <div class="workflow-card-footer">
+                <span class="workflow-tag">Priority Notifications</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Interactive Latest Opportunities Showcase -->
+      <section id="landing-opportunities" class="landing-section">
+        <div class="landing-container">
+          <div class="landing-section-header">
+            <span class="landing-section-badge">Live Opportunities</span>
+            <h2 class="landing-section-title">Fresh Opportunities Indexed Right Now</h2>
+            <p class="landing-section-subtitle">Real verified listings pulled straight from official sources. Click any category to filter live.</p>
+          </div>
+
+          <!-- Category Filter Toolbar -->
+          <div class="landing-filter-toolbar">
+            <div class="landing-filter-chips" role="radiogroup" aria-label="Filter opportunities by category">
+              <button class="landing-filter-chip active" data-type="all">All Listings</button>
+              <button class="landing-filter-chip" data-type="internship">Internships</button>
+              <button class="landing-filter-chip" data-type="hackathon">Hackathons</button>
+              <button class="landing-filter-chip" data-type="scholarship">Scholarships</button>
+            </div>
+            <div class="landing-live-badge">
+              <span class="pulse-dot"></span>
+              <span id="landing-opps-count-label">Loading verified listings...</span>
+            </div>
+          </div>
+
+          <!-- Dynamic Cards Grid populated by JS -->
+          <div class="landing-opps-grid" id="landing-opps-container">
+            <!-- Dynamically populated by JS using real API opportunities -->
+          </div>
+
+          <div class="landing-section-cta">
+            <button class="btn btn-primary btn-lg" id="explore-all-opps-btn">
+              <span>View All Opportunities with Match Scores</span>
+              <i data-lucide="arrow-right"></i>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. Silent Change Detection Showcase -->
+      <section id="landing-changes" class="landing-section landing-section-alt">
+        <div class="landing-container">
+          <div class="landing-section-header">
+            <span class="landing-section-badge">Silent Change Detection</span>
+            <h2 class="landing-section-title">Websites Change Stealthily. We Catch Every Edit.</h2>
+            <p class="landing-section-subtitle">Organizers frequently extend application deadlines or adjust criteria without notifying students. OpportunityRadar computes exact diffs automatically.</p>
+          </div>
+
+          <div class="landing-diff-showcase-grid">
+            <!-- Diff Demo 1: Deadline Extension -->
+            <div class="diff-showcase-card">
+              <div class="diff-card-badge-row">
+                <span class="diff-type-badge badge-deadline"><i data-lucide="calendar"></i> Deadline Extended</span>
+                <span class="diff-time-tag"><i data-lucide="clock"></i> Detected 10m ago</span>
+              </div>
+              <h3 class="diff-card-title">Apex National Innovation Hackathon 2026</h3>
+              <p class="diff-card-org">Organized by Apex Innovation Foundation</p>
+
+              <div class="diff-comparison-box">
+                <div class="diff-row diff-before">
+                  <span class="diff-label">Previous Deadline</span>
+                  <span class="diff-val-old"><del>October 15, 2026 (Expired)</del></span>
+                </div>
+                <div class="diff-row diff-after">
+                  <span class="diff-label">Updated Deadline</span>
+                  <span class="diff-val-new"><i data-lucide="arrow-right"></i> November 15, 2026 (+30 Days Extension)</span>
+                </div>
+              </div>
+
+              <div class="diff-evidence-quote">
+                <i data-lucide="quote"></i>
+                <p>“Registration window extended by 30 days due to university midterm examinations. Late submissions accepted.”</p>
+              </div>
+
+              <div class="diff-card-footer">
+                <span class="diff-source-verified"><i data-lucide="shield-check"></i> Verbatim HTML Snapshot Diff</span>
+                <span class="diff-action-tag">Alert Sent to Watchers</span>
+              </div>
+            </div>
+
+            <!-- Diff Demo 2: Eligibility Criteria Update -->
+            <div class="diff-showcase-card">
+              <div class="diff-card-badge-row">
+                <span class="diff-type-badge badge-eligibility"><i data-lucide="alert-triangle"></i> Eligibility Shift</span>
+                <span class="diff-time-tag"><i data-lucide="clock"></i> Detected 45m ago</span>
+              </div>
+              <h3 class="diff-card-title">Reliance AI Research Fellowship 2026</h3>
+              <p class="diff-card-org">Organized by Reliance Technology Initiative</p>
+
+              <div class="diff-comparison-box">
+                <div class="diff-row diff-before">
+                  <span class="diff-label">Initial Criteria</span>
+                  <span class="diff-val-old"><del>Open to all enrolled undergraduate students</del></span>
+                </div>
+                <div class="diff-row diff-after">
+                  <span class="diff-label">Modified Criteria</span>
+                  <span class="diff-val-new warn"><i data-lucide="arrow-right"></i> Final Year (4th year) engineering students only</span>
+                </div>
+              </div>
+
+              <div class="diff-evidence-quote">
+                <i data-lucide="quote"></i>
+                <p>“Eligibility revised: Only students graduating in class of 2026 qualify. Pre-final submissions will not be reviewed.”</p>
+              </div>
+
+              <div class="diff-card-footer">
+                <span class="diff-source-verified"><i data-lucide="shield-check"></i> Prevented Ineligible Application</span>
+                <span class="diff-action-tag">Fit Score Recalculated</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. Personalized Student Match Engine Showcase -->
+      <section class="landing-section" id="landing-matching">
+        <div class="landing-container">
+          <div class="landing-section-header">
+            <span class="landing-section-badge">Student Fit Matching</span>
+            <h2 class="landing-section-title">Transparent Explanations, Not Opaque Scores</h2>
+            <p class="landing-section-subtitle">No guessing whether you're qualified. See confirmed requirements, conflict breakdowns, and plain-language match reasons.</p>
+          </div>
+
+          <div class="landing-matcher-showcase">
+            <!-- Left: Sample Student Profile -->
+            <div class="matcher-profile-panel">
+              <div class="matcher-panel-header">
+                <div class="matcher-avatar">PS</div>
+                <div>
+                  <h4 class="matcher-name">Priya Sharma</h4>
+                  <p class="matcher-role">3rd Year (Pre-final) • Computer Science</p>
+                  <span class="matcher-college"><i data-lucide="building"></i> IIT Bombay</span>
+                </div>
+              </div>
+              <div class="matcher-skills-list">
+                <span class="skill-tag">Python</span>
+                <span class="skill-tag">Machine Learning</span>
+                <span class="skill-tag">React</span>
+                <span class="skill-tag">SQL</span>
+                <span class="skill-tag">Data Science</span>
+              </div>
+              <div class="matcher-profile-stats">
+                <div class="m-stat"><span class="m-stat-val">8.8</span><span class="m-stat-lbl">CGPA</span></div>
+                <div class="m-stat"><span class="m-stat-val">3rd Yr</span><span class="m-stat-lbl">Year of Study</span></div>
+                <div class="m-stat"><span class="m-stat-val">100%</span><span class="m-stat-lbl">Completeness</span></div>
+              </div>
+            </div>
+
+            <!-- Connector arrow -->
+            <div class="matcher-flow-connector">
+              <i data-lucide="arrow-right"></i>
+            </div>
+
+            <!-- Right: Real-Time Qualification Breakdown -->
+            <div class="matcher-eval-panel">
+              <div class="matcher-eval-header">
+                <div>
+                  <span class="eval-opp-type">Internship Match</span>
+                  <h4 class="eval-opp-title">Google Summer of Code 2026</h4>
+                </div>
+                <div class="eval-score-pill">
+                  <span class="score-num">98%</span>
+                  <span class="score-text">Strong Fit</span>
+                </div>
+              </div>
+
+              <div class="eval-reason-box">
+                <i data-lucide="sparkles"></i>
+                <p>“You satisfy 100% of the strict requirements. Your pre-final year standing, Computer Science branch, and Python/ML skills align directly with the project roadmap.”</p>
+              </div>
+
+              <div class="eval-breakdown-list">
+                <div class="breakdown-item confirmed">
+                  <i data-lucide="check-circle-2"></i>
+                  <span><strong>Year of Study:</strong> 3rd Year (Pre-final) matches student eligibility</span>
+                </div>
+                <div class="breakdown-item confirmed">
+                  <i data-lucide="check-circle-2"></i>
+                  <span><strong>Technical Skills:</strong> Python and Machine Learning confirmed in profile</span>
+                </div>
+                <div class="breakdown-item confirmed">
+                  <i data-lucide="check-circle-2"></i>
+                  <span><strong>Academic Branch:</strong> Computer Science meets applicant criteria</span>
+                </div>
+                <div class="breakdown-item neutral">
+                  <i data-lucide="info"></i>
+                  <span><strong>Conflicts:</strong> 0 eligibility conflicts detected</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. Monitored Sources & Anti-Hallucination Trust Grid -->
+      <section id="landing-sources" class="landing-section landing-section-alt">
+        <div class="landing-container">
+          <div class="landing-section-header">
+            <span class="landing-section-badge">Monitored Sources</span>
+            <h2 class="landing-section-title">Crawling Official Sources. Never Unverified Feeds.</h2>
+            <p class="landing-section-subtitle">We only index verified university career boards, accredited organizers, and primary source portals.</p>
+          </div>
+
+          <div class="landing-sources-grid">
+            <div class="monitored-source-box">
+              <div class="source-box-top">
+                <div class="source-box-icon"><i data-lucide="building"></i></div>
+                <span class="source-status-pill active"><span class="pulse-dot"></span> Active (5m)</span>
+              </div>
+              <h4 class="source-box-title">IIT &amp; NIT Official Boards</h4>
+              <p class="source-box-desc">Autonomous crawler navigates placement cell announcements and research symposiums.</p>
+              <div class="source-box-footer">
+                <span>Verified Portal</span>
+                <span class="source-check-time">Last check: 2m ago</span>
+              </div>
+            </div>
+
+            <div class="monitored-source-box">
+              <div class="source-box-top">
+                <div class="source-box-icon"><i data-lucide="award"></i></div>
+                <span class="source-status-pill active"><span class="pulse-dot"></span> Active (60m)</span>
+              </div>
+              <h4 class="source-box-title">Unstop Hackathons</h4>
+              <p class="source-box-desc">Tracks national engineering hackathons, prize pool revisions, and team registration changes.</p>
+              <div class="source-box-footer">
+                <span>Verified Feed</span>
+                <span class="source-check-time">Last check: 8m ago</span>
+              </div>
+            </div>
+
+            <div class="monitored-source-box">
+              <div class="source-box-top">
+                <div class="source-box-icon"><i data-lucide="globe"></i></div>
+                <span class="source-status-pill active"><span class="pulse-dot"></span> Active (15m)</span>
+              </div>
+              <h4 class="source-box-title">Global Developer Grants</h4>
+              <p class="source-box-desc">Monitors open-source student stipends including GSoC, MLH Fellowships, and Linux Foundation grants.</p>
+              <div class="source-box-footer">
+                <span>International Grants</span>
+                <span class="source-check-time">Last check: 12m ago</span>
+              </div>
+            </div>
+
+            <div class="monitored-source-box">
+              <div class="source-box-top">
+                <div class="source-box-icon"><i data-lucide="landmark"></i></div>
+                <span class="source-status-pill active"><span class="pulse-dot"></span> Active (30m)</span>
+              </div>
+              <h4 class="source-box-title">National Scholarship Portals</h4>
+              <p class="source-box-desc">Tracks Ministry of Education, AICTE, and private foundation fellowships with strict GPA criteria.</p>
+              <div class="source-box-footer">
+                <span>Government Registry</span>
+                <span class="source-check-time">Last check: 4m ago</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9. Final Conversion CTA Banner -->
+      <section class="landing-cta-banner-section">
+        <div class="landing-container">
+          <div class="landing-cta-banner">
+            <div class="cta-backdrop-glow"></div>
+            <div class="cta-banner-content">
+              <span class="cta-eyebrow">Start Now</span>
+              <h2 class="cta-banner-title">Your next opportunity is already out there.</h2>
+              <p class="cta-banner-desc">Join thousands of students monitoring verified opportunities, stealth deadline extensions, and high-fit hackathons with automated intelligence.</p>
+              <div class="cta-banner-actions">
+                <button class="btn btn-primary btn-lg cta-btn-white" id="final-cta-signup-btn">
+                  <span>Get Started for Free</span>
+                  <i data-lucide="arrow-right"></i>
+                </button>
+                <button class="btn btn-secondary btn-lg cta-btn-outline" id="final-cta-login-btn">
+                  <span>Sign In</span>
+                </button>
+              </div>
+              <div class="cta-perks">
+                <span>✓ Instant setup</span>
+                <span>✓ No credit card required</span>
+                <span>✓ 100% free student access</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 10. Public Footer -->
+      <footer class="landing-footer">
+        <div class="landing-container landing-footer-container">
+          <div class="footer-brand-col">
+            <div class="landing-brand">
+              <div class="radar-mark">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 2a10 10 0 0 1 10 10"></path>
+                  <path d="M12 6a6 6 0 0 1 6 6"></path>
+                  <circle cx="12" cy="12" r="2.2" fill="currentColor"></circle>
+                </svg>
+              </div>
+              <span class="landing-brand-text">OpportunityRadar</span>
+            </div>
+            <p class="footer-brand-desc">Autonomous opportunity intelligence for students. Continuous crawl, silent change detection, and transparent qualification matching.</p>
+          </div>
+
+          <div class="footer-links-col">
+            <h5>Product</h5>
+            <a href="#landing-features">Features</a>
+            <a href="#landing-how-it-works">How It Works</a>
+            <a href="#landing-opportunities">Live Radar</a>
+            <a href="#landing-changes">Change Timeline</a>
+          </div>
+
+          <div class="footer-links-col">
+            <h5>Students</h5>
+            <a href="#landing-matching">Match Engine</a>
+            <a href="#landing-sources">Monitored Portals</a>
+            <a id="footer-demo-link" style="cursor: pointer;">Demo Mode</a>
+            <a id="footer-login-link" style="cursor: pointer;">Student Sign In</a>
+          </div>
+
+          <div class="footer-links-col">
+            <h5>Trust &amp; Privacy</h5>
+            <span>Verbatim Quotes Only</span>
+            <span>Zero Hallucination</span>
+            <span>GDPR &amp; DPDP Compliant</span>
+            <span>Isolated User Data</span>
+          </div>
+        </div>
+
+        <div class="landing-footer-bottom">
+          <div class="landing-container footer-bottom-flex">
+            <p>© 2026 OpportunityRadar. All rights reserved.</p>
+            <p>Built with autonomous intelligence for student success.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+
     <!-- ── Authentication View (/login & /signup & /forgot-password) ── -->
     <div id="view-auth" class="auth-split-layout" style="display: none;">
       <!-- Left: Minimalist Sign-in Column -->
