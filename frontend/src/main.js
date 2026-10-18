@@ -503,8 +503,8 @@ function updateCinematicScroll() {
       signalBlips.style.opacity = Math.max(0, 1 - blipFade).toFixed(2);
     }
 
-    // Eruption completes by t = 0.50 (p = 0.32), followed by a calm dwell plateau for reading
-    const eruptT = Math.min(1, t / 0.50);
+    // Eruption completes by t = 0.35 (p = 0.28), followed by a calm dwell plateau for reading
+    const eruptT = Math.min(1, t / 0.35);
     // Smooth sinusoidal ease-out
     const easedT = Math.sin((eruptT * Math.PI) / 2);
     const cardAlpha = Math.min(1, easedT * 1.5).toFixed(2);
